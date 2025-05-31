@@ -128,7 +128,7 @@ async def start(client: Client, message: Message):
     if len(message.command) == 1:
         logger.info(f"Enviando mensaje de bienvenida normal a {user_id}")
         buttons_list = [
-            [InlineKeyboardButton('Únete a Nuestro Canal', url='https://t.me/NessCloud')],
+            [InlineKeyboardButton('Únete a Nuestro Canal', url='https://t.me/Ness_Cloud')],
             [InlineKeyboardButton('⚠️ Grupo de Soporte', url='https://t.me/NESS_Soporte')]
         ]
         # --- Botón Clonar Eliminado ---
