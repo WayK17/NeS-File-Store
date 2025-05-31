@@ -15,7 +15,7 @@ class script(object):
 
 <b>⚙️ Tamaño:</b> <code>{file_size}</code>
 
-<b>[「Nᴇss Cʟᴏᴜᴅ」](https://t.me/NessCloud)</b>"""
+<b>[「NESS Cloud」](https://t.me/Ness_Cloud)</b>"""
 
 # No Eliminar Crédito Tg - @VJ_Botz
 # Suscríbete al Canal de YouTube Para Bots Increíbles https://youtube.com/@Tech_VJ
