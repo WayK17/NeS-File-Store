@@ -28,6 +28,8 @@ class Database:
 
     async def add_user(self, id, name):
         try:
+            # Usamos $setOnInsert para añadir campos premium y is_banned
+            # solo si el usuario es nuevo, y $set para actualizar nombre.
             await self.col.update_one(
                 {'id': int(id)},
                 {
@@ -39,43 +41,63 @@ class Database:
                         'is_banned': False # Asegurar que el nuevo usuario no esté baneado por defecto
                     }
                 },
-                upsert=True
+                upsert=True # Crea el usuario si no existe
             )
             logger.info(f"Usuario {id} añadido o actualizado en la BD.")
         except Exception as e:
              logger.error(f"Error al añadir/actualizar usuario {id}: {e}")
 
     async def is_user_exist(self, id):
-        try: user = await self.col.find_one({'id':int(id)}); return bool(user)
-        except Exception as e: logger.error(f"Error check exist {id}: {e}"); return False
+        try:
+            user = await self.col.find_one({'id':int(id)})
+            return bool(user)
+        except Exception as e:
+            logger.error(f"Error check exist {id}: {e}")
+            return False
 
     async def total_users_count(self):
-        try: count = await self.col.count_documents({}); return count
-        except Exception as e: logger.error(f"Error count users: {e}"); return 0
+        try:
+            count = await self.col.count_documents({})
+            return count
+        except Exception as e:
+            logger.error(f"Error count users: {e}")
+            return 0
 
     async def get_all_users(self):
         logger.debug("Obteniendo cursor para todos los usuarios.")
-        return self.col.find({})
+        return self.col.find({}) # Devuelve cursor
 
     async def delete_user(self, user_id):
-        try: await self.col.delete_many({'id': int(user_id)}); logger.info(f"Usuario {user_id} eliminado.")
-        except Exception as e: logger.error(f"Error delete user {user_id}: {e}")
+        try:
+            await self.col.delete_many({'id': int(user_id)})
+            logger.info(f"Usuario {user_id} eliminado.")
+        except Exception as e:
+            logger.error(f"Error delete user {user_id}: {e}")
 
     async def get_user_info(self, user_id):
         logger.debug(f"Intentando obtener info del usuario {user_id}")
-        try: user_data = await self.col.find_one({'id': int(user_id)}); return user_data
-        except Exception as e: logger.error(f"Error get user info {user_id}: {e}"); return None
+        try:
+            user_data = await self.col.find_one({'id': int(user_id)})
+            return user_data
+        except Exception as e:
+            logger.error(f"Error get user info {user_id}: {e}")
+            return None
 
     async def update_user_info(self, user_id, update_data):
         logger.debug(f"Intentando actualizar info del usuario {user_id} con: {update_data}")
         try:
             result = await self.col.update_one({'id': int(user_id)}, {'$set': update_data})
-            if result.matched_count == 0: logger.warning(f"Update fail {user_id}: not found."); return False
+            if result.matched_count == 0:
+                logger.warning(f"Update fail {user_id}: not found.")
+                return False
             logger.debug(f"Update user {user_id}. Matched: {result.matched_count}, Mod: {result.modified_count}")
             return True
-        except Exception as e: logger.error(f"Error update user info {user_id}: {e}"); return False
+        except Exception as e:
+            logger.error(f"Error update user info {user_id}: {e}")
+            return False
 
     async def set_premium(self, user_id, days=None):
+        """Activa premium para un usuario. Si days es None, es permanente."""
         expiry_date = None
         if days is not None and days > 0:
             expiry_date = datetime.datetime.utcnow() + datetime.timedelta(days=days)
@@ -84,19 +106,34 @@ class Database:
         return await self.update_user_info(user_id, update_data)
 
     async def remove_premium(self, user_id):
+        """Desactiva premium para un usuario."""
         update_data = {'is_premium': False, 'premium_expiry': None}
         logger.info(f"Desactivando premium para {user_id}.")
         return await self.update_user_info(user_id, update_data)
 
     async def check_premium_status(self, user_id):
+        """Verifica si un usuario es premium activo."""
+        logger.debug(f"Verificando estado premium para {user_id}")
         user_data = await self.get_user_info(user_id)
-        if not user_data: return False
+        if not user_data:
+            logger.warning(f"Usuario {user_id} no encontrado para check_premium_status.")
+            return False # No encontrado, no es premium
+
         is_premium = user_data.get('is_premium', False)
         expiry_date = user_data.get('premium_expiry')
-        if not is_premium: return False
-        if expiry_date is None: return True
+
+        if not is_premium:
+            logger.debug(f"Usuario {user_id} no está marcado como premium.")
+            return False
+
+        if expiry_date is None:
+            logger.debug(f"Usuario {user_id} tiene premium permanente.")
+            return True
+
         if isinstance(expiry_date, datetime.datetime):
-            if datetime.datetime.utcnow() < expiry_date: return True
+            if datetime.datetime.utcnow() < expiry_date:
+                logger.debug(f"Usuario {user_id} tiene premium activo hasta {expiry_date}.")
+                return True
             else:
                 logger.info(f"Premium para {user_id} expiró en {expiry_date}. Desactivando...")
                 await self.remove_premium(user_id)
@@ -120,7 +157,8 @@ class Database:
     async def is_user_banned(self, user_id):
         """Verifica si un usuario está baneado."""
         user_data = await self.get_user_info(user_id)
-        if not user_data: return False # Si no existe, no está baneado
+        if not user_data:
+            return False # Si no existe, no está baneado
         return user_data.get('is_banned', False)
 
 db = Database(DB_URI, DB_NAME)
