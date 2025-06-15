@@ -4,7 +4,7 @@
 
 
 class script(object):
-    START_TXT = """<b>!Hola {} 👋!, Bienvenido a Nuestro Bot de Almacenamiento de Archivos.</b>"""
+    START_TXT = """<b>¡Hola {} 👋!, Soy {}. Bienvenido a nuestro bot de almacenamiento de archivos.</b>""" # Ajustado para mencionar al bot en la bienvenida
 
 # No Eliminar Crédito Tg - @VJ_Botz
 # Suscríbete al Canal de YouTube Para Bots Increíbles https://youtube.com/@Tech_VJ
@@ -21,69 +21,69 @@ class script(object):
 # Suscríbete al Canal de YouTube Para Bots Increíbles https://youtube.com/@Tech_VJ
 # Pregunta Dudas en telegram @KingVJ01
 
-    SHORTENER_API_MESSAGE = """<b>Pᴀʀᴀ ᴀɢʀᴇɢᴀʀ ᴏ ᴀᴄᴛᴜᴀʟɪᴢᴀʀ ᴛᴜ API ᴅᴇʟ Sɪᴛɪᴏ Aᴄᴏʀᴛᴀᴅᴏʀ, /api (ᴀᴘɪ)
+    SHORTENER_API_MESSAGE = """<b>Para agregar o actualizar tu API del Sitio Acortador: <code>/api (tu_api)</code>
             
-<b>Eᴊ: /api 𝟼LZǫ𝟾𝟻𝟷sXᴏғғғPHᴜɢɪKQǫ
+<b>Ej: <code>/api 6LZq851sXofffPHugiKQq</code>
 
-<b>Sɪᴛɪᴏ Wᴇʙ Aᴄᴛᴜᴀʟ: {base_site}
+<b>Sitio Web Actual:</b> <code>{base_site}</code>
 
-API ᴅᴇʟ Aᴄᴏʀᴛᴀᴅᴏʀ Aᴄᴛᴜᴀʟ:</b> `{shortener_api}`
+<b>API del Acortador Actual:</b> <code>{shortener_api}</code>
 
-Si Deseas Eliminar la Api, Entonces Copia Esto y Envíalo al Bot - `/api None`"""
-
-# No Eliminar Crédito Tg - @VJ_Botz
-# Suscríbete al Canal de YouTube Para Bots Increíbles https://youtube.com/@Tech_VJ
-# Pregunta Dudas en telegram @KingVJ01
-
-    CLONE_START_TXT = """<b>ʜᴏʟᴀ {}, ᴍɪ ɴᴏᴍʙʀᴇ ᴇs {} 👋, sᴏʏ ᴜɴ ʙᴏᴛ ᴅᴇ ᴀʟᴍᴀᴄᴇɴᴀᴍɪᴇɴᴛᴏ ᴅᴇ ᴀʀᴄʜɪᴠᴏs ᴀᴠᴀɴᴢᴀᴅᴏ ʏ ᴘᴏᴛᴇɴᴛᴇ + sᴏᴘᴏʀᴛᴇ ᴅᴇ ᴀᴄᴏʀᴛᴀᴅᴏʀ ᴅᴇ ᴜʀʟ ᴘᴇʀsᴏɴᴀʟɪᴢᴀᴅᴏ sᴏᴘᴏʀᴛᴇ ᴅᴇ ᴇʟɪᴍɪɴᴀᴄɪóɴ ᴀᴜᴛᴏᴍáᴛɪᴄᴀ ʏ ᴍᴇᴊᴏʀ ʀᴇɴᴅɪᴍɪᴇɴᴛᴏ ᴅᴇ ɪɴᴛᴇʀғᴀᴢ ᴅᴇ ᴜsᴜᴀʀɪᴏ
-
-sɪ ǫᴜɪᴇʀᴇs ᴇsᴛᴀ ᴄᴀʀᴀᴄᴛᴇʀísᴛɪᴄᴀ, ᴄʀᴇᴀ ᴛᴜ ᴘʀᴏᴘɪᴏ ʙᴏᴛ ᴄʟᴏɴ ᴅᴇsᴅᴇ ᴍɪ <a href=https://t.me/vj_botz>ᴏʀɪɢɪɴᴀʟ</a></b>"""
+Si deseas eliminar la API, envía: <code>/api None</code>"""
 
 # No Eliminar Crédito Tg - @VJ_Botz
 # Suscríbete al Canal de YouTube Para Bots Increíbles https://youtube.com/@Tech_VJ
 # Pregunta Dudas en telegram @KingVJ01
 
-    ABOUT_TXT = """<b> Hola Soy un Bot de Almacenamiento de Archivos Permanentes. 
+    CLONE_START_TXT = """<b>¡Hola {} 👋! Mi nombre es {}. Soy un bot de almacenamiento de archivos avanzado y potente, con soporte de acortador de URL personalizado, función de auto-borrado y una interfaz de usuario mejorada.
 
-🤖 ᴍɪ ɴᴏᴍʙʀᴇ: {}
+Si quieres estas características, crea tu propio bot clon desde mi <a href="https://t.me/vj_botz">original</a>.</b>"""
 
-📝 ʟᴇɴɢᴜᴀᴊᴇ: <a href=https://www.python.org>Python3</a>
+# No Eliminar Crédito Tg - @VJ_Botz
+# Suscríbete al Canal de YouTube Para Bots Increíbles https://youtube.com/@Tech_VJ
+# Pregunta Dudas en telegram @KingVJ01
 
-📚 ʙɪʙʟɪᴏᴛᴇᴄᴀ: <a href=https://docs.pyrogram.org>Pyrogram</a>
+    ABOUT_TXT = """<b>Hola, soy un Bot de Almacenamiento de Archivos Permanentes. 
 
-🧑🏻‍💻 ᴅᴇsᴀʀʀᴏʟʟᴀᴅᴏʀ: <a href=https://t.me/WayK17X></a>
+🤖 Mi nombre: {me_mention}
 
-👥 ɢʀᴜᴘᴏ ᴅᴇ sᴏᴘᴏʀᴛᴇ: <a href=https://t.me/NESS_Soporte></a>
+📝 Lenguaje: <a href=https://www.python.org>Python3</a>
 
-📢 ᴄᴀɴᴀʟ ᴅᴇ ᴀᴄᴛᴜᴀʟɪᴢᴀᴄɪᴏɴᴇs: <a href=https://t.me/NessCloud>Nᴇss Cʟᴏᴜᴅ</a></b>
+📚 Biblioteca: <a href=https://docs.pyrogram.org>Pyrogram</a>
+
+🧑🏻‍💻 Desarrollador: <a href=https://t.me/WayK17X>WayK17</a>
+
+👥 Grupo de Soporte: <a href=https://t.me/NESS_Soporte>NESS Soporte</a>
+
+📢 Canal de Actualizaciones: <a href=https://t.me/NessCloud>Ness Cloud</a></b>
 """
 
-    CABOUT_TXT = """<b> Hola Soy un Bot de Almacenamiento de Archivos Permanentes.
+    CABOUT_TXT = """<b>Hola, soy un Bot de Almacenamiento de Archivos Permanentes.
 
-🤖 ᴍɪ ɴᴏᴍʙʀᴇ: {}
+🤖 Mi nombre: {me_mention}
 
-📝 ʟᴇɴɢᴜᴀᴊᴇ: <a href=https://www.python.org>Python3</a>
+📝 Lenguaje: <a href=https://www.python.org>Python3</a>
 
-📚 ʙɪʙʟɪᴏᴛᴇᴄᴀ: <a href=https://docs.pyrogram.org>Pyrogram</a>
+📚 Biblioteca: <a href=https://docs.pyrogram.org>Pyrogram</a>
 
-🧑🏻‍💻 ᴅᴇsᴀʀʀᴏʟʟᴀᴅᴏʀ: <a href=tg://user?id={}>ᴅᴇsᴀʀʀᴏʟʟᴀᴅᴏʀ</a></b>
+🧑🏻‍💻 Desarrollador: <a href=tg://user?id={}>Desarrollador</a></b>
 """
 
 # No Eliminar Crédito Tg - @VJ_Botz
 # Suscríbete al Canal de YouTube Para Bots Increíbles https://youtube.com/@Tech_VJ
 # Pregunta Dudas en telegram @KingVJ01
 
-    CLONE_TXT = """<b>ʜᴏʟᴀ {} 👋
+    CLONE_TXT = """<b>¡Hola {} 👋!
 
 Primero envía el comando /clone y luego sigue estos pasos.
     
-1) ᴇɴᴠíᴀ <code>/newbot</code> ᴀ @BotFather
-2) ᴀsɪɢɴᴀ ᴜɴ ɴᴏᴍʙʀᴇ ᴘᴀʀᴀ ᴛᴜ ʙᴏᴛ.
-3) ᴀsɪɢɴᴀ ᴜɴ ɴᴏᴍʙʀᴇ ᴅᴇ ᴜsᴜᴀʀɪᴏ úɴɪᴄᴏ.
-4) ʟᴜᴇɢᴏ ʀᴇᴄɪʙɪʀás ᴜɴ ᴍᴇɴsᴀᴊᴇ ᴄᴏɴ ᴛᴜ ᴛᴏᴋᴇɴ ᴅᴇ ʙᴏᴛ.
-5) ʀᴇᴇɴᴠíᴀ ᴇsᴇ ᴍᴇɴsᴀᴊᴇ ᴀ ᴍí.
+1) Envía <code>/newbot</code> a @BotFather
+2) Asigna un nombre para tu bot.
+3) Asigna un nombre de usuario único.
+4) Luego recibirás un mensaje con tu token de bot.
+5) Reenvía ese mensaje a mí.
 
-ᴇɴᴛᴏɴᴄᴇs ɪɴᴛᴇɴᴛᴀʀé ᴄʀᴇᴀʀ ᴜɴᴀ ᴄᴏᴘɪᴀ ᴍíᴀ ᴘᴀʀᴀ ᴛɪ sᴏʟᴀᴍᴇɴᴛᴇ 😌</b>"""
+Entonces intentaré crear una copia mía para ti solamente 😌</b>"""
 
 # No Eliminar Crédito Tg - @VJ_Botz
 # Suscríbete al Canal de YouTube Para Bots Increíbles https://youtube.com/@Tech_VJ
@@ -91,39 +91,38 @@ Primero envía el comando /clone y luego sigue estos pasos.
 
     HELP_TXT = """<b><u>💢 CÓMO USAR EL BOT ☺️</u>
 
-🔻 /link - ʀᴇsᴘᴏɴᴅᴇ ᴀ ᴜɴ ᴠɪᴅᴇᴏ ᴏ ᴀʀᴄʜɪᴠᴏ ᴘᴀʀᴀ ᴏʙᴛᴇɴᴇʀ ᴜɴ ᴇɴʟᴀᴄᴇ ᴄᴏᴍᴘᴀʀᴛɪʙʟᴇ
-
-🔻 /batch - ᴇɴᴠíᴀ ᴘʀɪᴍᴇʀᴏ ᴇʟ ᴇɴʟᴀᴄᴇ ᴅᴇʟ ᴘʀɪᴍᴇʀ ᴘᴏsᴛ ᴅᴇʟ ᴄᴀɴᴀʟ ᴅᴇ ᴀʟᴍᴀᴄᴇɴᴀᴍɪᴇɴᴛᴏ ʏ ʟᴜᴇɢᴏ ᴇʟ ᴇɴʟᴀᴄᴇ ᴅᴇʟ úʟᴛɪᴍᴏ ᴘᴏsᴛ, ᴀsᴇɢúʀᴀᴛᴇ ᴅᴇ ǫᴜᴇ ᴇʟ ʙᴏᴛ sᴇᴀ ᴀᴅᴍɪɴɪsᴛʀᴀᴅᴏʀ ᴇɴ ᴛᴜ ᴄᴀɴᴀʟ ᴅᴇ ᴀʟᴍᴀᴄᴇɴᴀᴍɪᴇɴᴛᴏ.
-ᴇᴊ - /batch https://t.me/vj_botz/25 https://t.me/vj_botz/30
-
-🔻 /clone - ᴄʀᴇᴀ ᴛᴜ ᴘʀᴏᴘɪᴏ ʙᴏᴛ ᴄʟᴏɴ ɪᴅéɴᴛɪᴄᴏ
-
-🔻 /base_site - ᴜsᴀ ᴇsᴛᴇ ᴄᴏᴍᴀɴᴅᴏ ᴘᴀʀᴀ ᴄᴏɴғɪɢᴜʀᴀʀ ᴇʟ ᴅᴏᴍɪɴɪᴏ ᴅᴇʟ ᴀᴄᴏʀᴛᴀᴅᴏʀ ᴅᴇ ᴜʀʟs 
-ᴇᴊ - /base_site ᴛᴜᴅᴏᴍɪɴɪᴏ.ᴄᴏᴍ
-
-🔻 /api - ᴄᴏɴғɪɢᴜʀᴀ ʟᴀ ᴀᴘɪ ᴅᴇ ᴛᴜ ᴄᴜᴇɴᴛᴀ ᴅᴇ ᴀᴄᴏʀᴛᴀᴅᴏʀ ᴅᴇ ᴜʀʟs 
-ᴇᴊ - /api ʙᴀᴏᴡɢᴡᴋʟᴀᴀʙᴀᴋʟ
-
-🔻 /deletecloned - ᴜsᴀ ᴇsᴛᴏ ᴘᴀʀᴀ ᴇʟɪᴍɪɴᴀʀ ᴛᴜ ʙᴏᴛ ᴄʟᴏɴᴀᴅᴏ 
-
-🔻 /broadcast - ʀᴇsᴘᴏɴᴅᴇ ᴀ ᴇsᴛᴇ ᴄᴏᴍᴀɴᴅᴏ ᴄᴏɴ ᴜɴ ᴍᴇɴsᴀᴊᴇ ᴘᴀʀᴀ ᴛʀᴀɴsᴍɪᴛɪʀʟᴏ (sᴏʟᴏ ᴘᴀʀᴀ ᴇʟ ᴘʀᴏᴘɪᴇᴛᴀʀɪᴏ ᴅᴇʟ ʙᴏᴛ)</b>"""
+🔻 /start - Con este comando puedes verificar si el bot está activo.
+🔻 /link - Responde a un video o archivo para obtener un enlace compartible.
+🔻 /batch - Envía el enlace del primer post del canal de almacenamiento y luego el enlace del último post. Asegúrate de que el bot sea administrador en tu canal de almacenamiento.
+   Ej: <code>/batch https://t.me/vj_botz/25 https://t.me/vj_botz/30</code>
+🔻 /clone - Crea tu propio bot clon idéntico.
+🔻 /base_site - Usa este comando para configurar el dominio de tu acortador de URLs.
+   Ej: <code>/base_site tudominio.com</code>
+🔻 /api - Configura la API de tu cuenta de acortador de URLs.
+   Ej: <code>/api baowgwklaabakl</code>
+🔻 /addpremium [ID] - Otorga acceso premium a un usuario (solo admins).
+🔻 /addpremium [ID] [días] - Otorga acceso premium por `X` días a un usuario (solo admins).
+🔻 /delpremium [ID] - Revoca el acceso premium de un usuario (solo admins).
+🔻 /stats - Muestra estadísticas de usuarios (solo admins).
+🔻 /deletecloned - Usa esto para eliminar tu bot clonado.
+🔻 /broadcast - Responde a este comando con un mensaje para transmitirlo (solo para el propietario del bot).
+🔻 /dbroadcast - Responde a este comando con un mensaje para transmitirlo y auto-borrarlo después de un tiempo (solo para el propietario del bot).
+</b>"""
 
 # No Eliminar Crédito Tg - @VJ_Botz
 # Suscríbete al Canal de YouTube Para Bots Increíbles https://youtube.com/@Tech_VJ
 # Pregunta Dudas en telegram @KingVJ01
 
+    CHELP_TXT = """<b>💢 Cómo Usar Este Bot ☺️
 
-    CHELP_TXT = """<b>💢 Cóᴍᴏ Usᴀʀ Esᴛᴇ Bᴏᴛ ☺️
-
-🔻 /link - ʀᴇsᴘᴏɴᴅᴇ ᴀ ᴜɴ ᴠɪᴅᴇᴏ ᴏ ᴀʀᴄʜɪᴠᴏ ᴘᴀʀᴀ ᴏʙᴛᴇɴᴇʀ ᴜɴ ᴇɴʟᴀᴄᴇ ᴄᴏᴍᴘᴀʀᴛɪʙʟᴇ
-
-🔻 /base_site - ᴜsᴀ ᴇsᴛᴇ ᴄᴏᴍᴀɴᴅᴏ ᴘᴀʀᴀ ᴄᴏɴғɪɢᴜʀᴀʀ ᴇʟ ᴅᴏᴍɪɴɪᴏ ᴅᴇʟ ᴀᴄᴏʀᴛᴀᴅᴏʀ ᴅᴇ ᴜʀʟs
-ᴇᴊ - /base_site ᴛᴜᴅᴏᴍɪɴɪᴏ.ᴄᴏᴍ
-
-🔻 /api - ᴄᴏɴғɪɢᴜʀᴀ ʟᴀ ᴀᴘɪ ᴅᴇ ᴛᴜ ᴄᴜᴇɴᴛᴀ ᴅᴇ ᴀᴄᴏʀᴛᴀᴅᴏʀ ᴅᴇ ᴜʀʟs
-ᴇᴊ - /api ʙᴀᴏᴡɢᴡᴋʟᴀᴀʙᴀᴋʟ
-
-🔻 /broadcast - ʀᴇsᴘᴏɴᴅᴇ ᴀ ᴇsᴛᴇ ᴄᴏᴍᴀɴᴅᴏ ᴄᴏɴ ᴜɴ ᴍᴇɴsᴀᴊᴇ ᴘᴀʀᴀ ᴛʀᴀɴsᴍɪᴛɪʀʟᴏ (sᴏʟᴏ ᴘᴀʀᴀ ᴇʟ ᴘʀᴏᴘɪᴇᴛᴀʀɪᴏ ᴅᴇʟ ʙᴏᴛ)</b>"""
+🔻 /start - Con este comando puedes verificar si el bot está activo.
+🔻 /link - Responde a un video o archivo para obtener un enlace compartible.
+🔻 /base_site - Usa este comando para configurar el dominio de tu acortador de URLs.
+   Ej: <code>/base_site tudominio.com</code>
+🔻 /api - Configura la API de tu cuenta de acortador de URLs.
+   Ej: <code>/api baowgwklaabakl</code>
+🔻 /broadcast - Responde a este comando con un mensaje para transmitirlo (solo para el propietario del bot).
+</b>"""
 
 # No Eliminar Crédito Tg - @VJ_Botz
 # Suscríbete al Canal de YouTube Para Bots Increíbles https://youtube.com/@Tech_VJ
@@ -131,14 +130,14 @@ Primero envía el comando /clone y luego sigue estos pasos.
 
     LOG_TEXT = """<b>👤 Nuevo Usuario</b>
 
-ID: <code>{}</code>  
-Nombre: <b>{}</b>
+ID: <code>{user_id}</code>  
+Nombre: <b>{user_mention}</b>
 """
     RESTART_TXT = """
-<b>🤖 Bot Reiniciado!</b>
+<b>🤖 ¡Bot Reiniciado!</b>
 
-📅 <b>Fecha:</b> <code>{}</code>  
-⏰ <b>Hora:</b> <code>{}</code>  
+📅 <b>Fecha:</b> <code>{today}</code>  
+⏰ <b>Hora:</b> <code>{time}</code>  
 🌐 <b>Zona Horaria:</b> <code>Asia/Kolkata</code>  
 🛠️ <b>Estado de Construcción:</b> <code>v2.7.1 [Estable]</code>"""
 
@@ -146,7 +145,7 @@ Nombre: <b>{}</b>
     # --- MENSAJE PARA FORZAR SUSCRIPCIÓN ---
     FORCE_MSG = """<b>🚧 Acceso Restringido 🚧</b>
 
-<b>Hola {mention} 👋🏼!</b>
+<b>¡Hola {mention} 👋🏼!</b>
 
 Para acceder a estos archivos, debes ser miembro del <b>CANAL</b>.
 
@@ -165,9 +164,6 @@ Lo sentimos, este enlace es exclusivo para usuarios <b>Premium</b> ✨.
 
 <i>Gracias por tu interés y apoyo.</i> 💖
 """
-
-    # ... (resto de la clase) ...
-
 
 # No Eliminar Crédito Tg - @VJ_Botz
 # Suscríbete al Canal de YouTube Para Bots Increíbles https://youtube.com/@Tech_VJ
