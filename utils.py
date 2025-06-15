@@ -128,4 +128,3 @@ async def check_user_membership(client, user_id, channel_id):
 
 
 # --- FIN DE LA NUEVA FUNCIÓN ---
-
