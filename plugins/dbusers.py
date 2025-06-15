@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 class Database:
 
     def __init__(self, uri, database_name):
-        # ... (sin cambios) ...
         self._client = motor.motor_asyncio.AsyncIOMotorClient(uri)
         self.db = self._client[database_name]
         self.col = self.db.users
@@ -55,33 +54,27 @@ class Database:
 
     # --- Funciones Originales (sin cambios funcionales) ---
     async def is_user_exist(self, id):
-        # ... (sin cambios) ...
         try: user = await self.col.find_one({'id':int(id)}); return bool(user)
         except Exception as e: logger.error(f"Error check exist {id}: {e}"); return False
 
     async def total_users_count(self):
-        # ... (sin cambios) ...
         try: count = await self.col.count_documents({}); return count
         except Exception as e: logger.error(f"Error count users: {e}"); return 0
 
     async def get_all_users(self):
-        # ... (sin cambios) ...
         logger.debug("Obteniendo cursor para todos los usuarios.")
         return self.col.find({}) # Devuelve cursor
 
     async def delete_user(self, user_id):
-        # ... (sin cambios) ...
         try: await self.col.delete_many({'id': int(user_id)}); logger.info(f"Usuario {user_id} eliminado.")
         except Exception as e: logger.error(f"Error delete user {user_id}: {e}")
 
     async def get_user_info(self, user_id):
-        # ... (sin cambios) ...
         logger.debug(f"Intentando obtener info del usuario {user_id}")
         try: user_data = await self.col.find_one({'id': int(user_id)}); return user_data
         except Exception as e: logger.error(f"Error get user info {user_id}: {e}"); return None
 
     async def update_user_info(self, user_id, update_data):
-        # ... (sin cambios) ...
         logger.debug(f"Intentando actualizar info del usuario {user_id} con: {update_data}")
         try:
             result = await self.col.update_one({'id': int(user_id)}, {'$set': update_data})
