@@ -59,7 +59,7 @@ PUBLIC_FILE_STORE = is_enabled((environ.get('PUBLIC_FILE_STORE', "False")), Fals
 VERIFY_MODE = bool(environ.get('VERIFY_MODE', False)) # Set True or False
 
 # If Verify Mode Is True Then Fill All Required Variable, If False Then Don't Fill.
-SHORTLINK_URL = environ.get("SHORTLINK_URL", "") # shortlink domain without https://
+SHORTLINK_URL = environ.get("SHORTLINK_URL", "api.shareus.io") # shortlink domain without https://
 SHORTLINK_API = environ.get("SHORTLINK_API", "") # shortlink api
 VERIFY_TUTORIAL = environ.get("VERIFY_TUTORIAL", "") # how to open link 
 
@@ -97,7 +97,7 @@ BROADCAST_DELETE_DELAY = int(environ.get("BROADCAST_DELETE_DELAY", "3600"))
 FORCE_SUB_ENABLED = is_enabled(environ.get('FORCE_SUB_ENABLED', "True"), True)
 
 # ID numérico o @username del canal al que deben unirse. ¡El bot DEBE ser admin aquí!
-# Ejemplo: FORCE_SUB_CHANNEL = -10012345678**  o  FORCE_SUB_CHANNEL = "MiCanal"
+# Ejemplo: FORCE_SUB_CHANNEL = -10012345678** o  FORCE_SUB_CHANNEL = "MiCanal"
 FORCE_SUB_CHANNEL = environ.get('FORCE_SUB_CHANNEL', "-1002661251789")
 
 # Enlace de invitación del canal (si es privado o quieres usar uno específico)
