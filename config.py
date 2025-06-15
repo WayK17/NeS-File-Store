@@ -24,7 +24,7 @@ API_ID = int(environ.get("API_ID", "15353803"))
 # API_HASH: Hash de la API de Telegram, obtenido de my.telegram.org
 API_HASH = environ.get("API_HASH", "0dc88c619c52613806822fd600eec006")
 # BOT_TOKEN: Token del bot, obtenido de BotFather
-BOT_TOKEN = environ.get("BOT_TOKEN", "8112764734:AAG6_n42MvPY7OVhy2aheE_qc_84_XQo2MA")
+BOT_TOKEN = environ.get("BOT_TOKEN", "7095517891:AAGXGWs6hW7IU2XnOTMtZrjSEBmsWJG2rUI")
 
 # PICS: Lista de URLs de imágenes para usar en el mensaje de inicio del bot
 PICS = (environ.get('PICS', 'https://iili.io/3Q8HbFs.jpg/IMG22052025.jpg')).split()
