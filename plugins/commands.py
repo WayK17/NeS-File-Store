@@ -117,7 +117,7 @@ async def start(client: Client, message: Message):
             try:
                 await client.send_message(
                     LOG_CHANNEL,
-                    script.LOG_TEXT.format(user_id, user_mention)
+                    script.LOG_TEXT.format(user_id=user_id, user_mention=user_mention) # Usar argumentos nombrados
                 )
             except Exception as log_err:
                 logger.error(f"Error enviando mensaje de nuevo usuario a LOG_CHANNEL {LOG_CHANNEL}: {log_err}")
