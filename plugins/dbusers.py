@@ -3,7 +3,6 @@
 import motor.motor_asyncio
 from config import DB_NAME, DB_URI
 import logging
-# --- Añadido: Importar datetime para manejar fechas de expiración ---
 import datetime
 
 logger = logging.getLogger(__name__)
@@ -16,43 +15,36 @@ class Database:
         self.col = self.db.users
         logger.info("Conexión a base de datos de usuarios establecida.")
 
-    # --- Modificado para incluir campos premium ---
     def new_user(self, id, name):
         logger.debug(f"Creando nuevo dict de usuario para ID: {id}")
         return dict(
             id = id,
             name = name,
             pending_join_msg_id = None,
-            # --- Campos nuevos ---
             is_premium = False,
-            premium_expiry = None # Guardaremos fecha/hora UTC
-            # -------------------
+            premium_expiry = None,
+            is_banned = False, # NUEVO CAMPO: estado de baneo
         )
 
-    # --- Modificado para asegurar campos premium ---
     async def add_user(self, id, name):
-        user_dict = self.new_user(id, name)
         try:
-            # Usamos $setOnInsert para añadir campos premium solo si el usuario es nuevo
-            # y $set para actualizar nombre (y asegurar id/name existen)
             await self.col.update_one(
                 {'id': int(id)},
                 {
-                    '$set': {'name': name}, # Asegurar/Actualizar nombre
+                    '$set': {'name': name},
                     '$setOnInsert': {
                         'is_premium': False,
                         'premium_expiry': None,
-                        'pending_join_msg_id': None
-                        # Añadir otros campos iniciales aquí si los hubiera
+                        'pending_join_msg_id': None,
+                        'is_banned': False # Asegurar que el nuevo usuario no esté baneado por defecto
                     }
                 },
-                upsert=True # Crea el usuario si no existe
+                upsert=True
             )
             logger.info(f"Usuario {id} añadido o actualizado en la BD.")
         except Exception as e:
              logger.error(f"Error al añadir/actualizar usuario {id}: {e}")
 
-    # --- Funciones Originales (sin cambios funcionales) ---
     async def is_user_exist(self, id):
         try: user = await self.col.find_one({'id':int(id)}); return bool(user)
         except Exception as e: logger.error(f"Error check exist {id}: {e}"); return False
@@ -63,7 +55,7 @@ class Database:
 
     async def get_all_users(self):
         logger.debug("Obteniendo cursor para todos los usuarios.")
-        return self.col.find({}) # Devuelve cursor
+        return self.col.find({})
 
     async def delete_user(self, user_id):
         try: await self.col.delete_many({'id': int(user_id)}); logger.info(f"Usuario {user_id} eliminado.")
@@ -83,71 +75,52 @@ class Database:
             return True
         except Exception as e: logger.error(f"Error update user info {user_id}: {e}"); return False
 
-    # ======================================================
-    # =========== INICIO: NUEVAS FUNCIONES PREMIUM =========
-    # ======================================================
-
     async def set_premium(self, user_id, days=None):
-        """Activa premium para un usuario. Si days es None, es permanente."""
         expiry_date = None
         if days is not None and days > 0:
-            # Calcula la fecha de expiración desde AHORA en UTC
             expiry_date = datetime.datetime.utcnow() + datetime.timedelta(days=days)
-
-        update_data = {
-            'is_premium': True,
-            'premium_expiry': expiry_date # Puede ser None para permanente
-        }
+        update_data = {'is_premium': True, 'premium_expiry': expiry_date}
         logger.info(f"Activando premium para {user_id}. Expiración: {expiry_date}")
         return await self.update_user_info(user_id, update_data)
 
     async def remove_premium(self, user_id):
-        """Desactiva premium para un usuario."""
-        update_data = {
-            'is_premium': False,
-            'premium_expiry': None
-        }
+        update_data = {'is_premium': False, 'premium_expiry': None}
         logger.info(f"Desactivando premium para {user_id}.")
         return await self.update_user_info(user_id, update_data)
 
     async def check_premium_status(self, user_id):
-        """Verifica si un usuario es premium activo."""
-        logger.debug(f"Verificando estado premium para {user_id}")
         user_data = await self.get_user_info(user_id)
-        if not user_data:
-            logger.warning(f"Usuario {user_id} no encontrado para check_premium_status.")
-            return False # No encontrado, no es premium
-
+        if not user_data: return False
         is_premium = user_data.get('is_premium', False)
-        expiry_date = user_data.get('premium_expiry') # Puede ser None o datetime
-
-        if not is_premium:
-            logger.debug(f"Usuario {user_id} no está marcado como premium.")
-            return False # No está marcado como premium
-
-        # Si está marcado como premium, verificar expiración
-        if expiry_date is None:
-            logger.debug(f"Usuario {user_id} tiene premium permanente.")
-            return True # Es premium permanente
-
-        # Si tiene fecha de expiración, compararla con la fecha/hora actual UTC
+        expiry_date = user_data.get('premium_expiry')
+        if not is_premium: return False
+        if expiry_date is None: return True
         if isinstance(expiry_date, datetime.datetime):
-            if datetime.datetime.utcnow() < expiry_date:
-                logger.debug(f"Usuario {user_id} tiene premium activo hasta {expiry_date}.")
-                return True # Aún no ha expirado
+            if datetime.datetime.utcnow() < expiry_date: return True
             else:
-                # Premium expirado, desactivarlo en la BD
                 logger.info(f"Premium para {user_id} expiró en {expiry_date}. Desactivando...")
-                await self.remove_premium(user_id) # Lo desactivamos automáticamente
-                return False # Expiró
+                await self.remove_premium(user_id)
+                return False
         else:
              logger.warning(f"Campo premium_expiry para {user_id} no es datetime o None: {expiry_date}. Asumiendo no premium.")
-             # Podrías querer arreglar este dato en la BD
              await self.remove_premium(user_id)
              return False
 
-    # ======================================================
-    # ============= FIN: NUEVAS FUNCIONES PREMIUM ==========
-    # ======================================================
+    # NUEVAS FUNCIONES PARA BANEO
+    async def ban_user(self, user_id):
+        """Banea a un usuario."""
+        logger.info(f"Baneando al usuario {user_id}.")
+        return await self.update_user_info(user_id, {'is_banned': True})
+
+    async def unban_user(self, user_id):
+        """Desbanea a un usuario."""
+        logger.info(f"Desbaneando al usuario {user_id}.")
+        return await self.update_user_info(user_id, {'is_banned': False})
+
+    async def is_user_banned(self, user_id):
+        """Verifica si un usuario está baneado."""
+        user_data = await self.get_user_info(user_id)
+        if not user_data: return False # Si no existe, no está baneado
+        return user_data.get('is_banned', False)
 
 db = Database(DB_URI, DB_NAME)
