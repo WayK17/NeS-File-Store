@@ -2,52 +2,61 @@
   <img src="https://graph.org/file/d57d6f83abb6b8d0efb02.jpg" alt="VJ-FILE-STORE-BOT Logo">
 </p>
 <h1 align="center">
-  VJ FILE STORE BOT
+  BOT DE ALMACENAMIENTO DE ARCHIVOS VJ
 </h1>
 
-![Typing SVG](https://readme-typing-svg.herokuapp.com/?lines=Welcome+To+VJ-FILE-STORE-BOT;A+Highly+Advance+File+Store+Bot;Made+By+Yt-@Tech_VJ!;With+Clone+Feature+Stream/Download+Link;Custom+Url+Shortner+Auto+Delete+Feature;A+Bot+With+Fully+Advanced+Feature!;Thank+You!)
+![Typing SVG](https://readme-typing-svg.herokuapp.com/?lines=Bienvenido+al+BOT-DE-ALMACENAMIENTO-DE-ARCHIVOS-VJ;Un+Bot+Altamente+Avanzado+para+Almacenar+Archivos;Creado+Por+Yt-@Tech_VJ!;Con+Función+de+Clonación+y+Enlaces+de+Stream/Descarga;Acortador+de+URL+Personalizado+y+Función+de+Auto-Borrado;¡Un+Bot+Con+Funciones+Totalmente+Avanzadas!;¡Gracias!)
 </p>
 
-### Deploy Tutorial [Video Link](https://youtu.be/VxAn9VcYtQg)
+### Tutorial de Despliegue [Enlace al Video](https://youtu.be/VxAn9VcYtQg)
 
-## Features
+## Características
 
-<b><details><summary>Tap On Me For Bot Features</summary>
+<b><details><summary>Toca aquí para ver las Características del Bot</summary>
  
-- [x] Permanent Link By Using Website [ Premium Feature] 
-- [x] Clone Feature Added [ Premium Feature] 
-- [x] Token Verification Feature 
-- [x] Stram Feature Added With Many Player Support
-- [x] Custom Url Shortner Support Any User Can Add His Own Shortner
-- [x] Batch Support Added, Any User Can Use Batch By Making Bot Admin In His File Store Channel
-- [x] Auto Delete Feature Added
-- [x] Custom Start Message With Picture And Buttons
+- [x] Enlace Permanente a través del Sitio Web [Función Premium] 
+- [x] Función de Clonación Añadida [Función Premium] 
+- [x] Función de Verificación de Token 
+- [x] Función de Stream Añadida con Soporte para Múltiples Reproductores
+- [x] Soporte de Acortador de URL Personalizado (Cualquier usuario puede añadir su propio acortador)
+- [x] Soporte de Lote Añadido (Cualquier usuario puede usar lotes haciendo al bot administrador en su canal de almacenamiento de archivos)
+- [x] Función de Auto-Borrado Añadida
+- [x] Mensaje de Inicio Personalizado con Imagen y Botones
 </b>
 </details>
 
-## Environment Variables
+## Variables de Entorno
 
-<b><details><summary>Tap On Me For Environment Variable</summary>
+<b><details><summary>Toca aquí para ver las Variables de Entorno</summary>
 
-- `API_ID` : Get From [my.telegram.org](https://my.telegram.org)
-- `API_HASH` : Get From [my.telegram.org](https://my.telegram.org)
-- `BOT_TOKEN` : Get From [BotFather](https://telegram.me/BotFather)
-- `BOT_USERNAME` : Your Bot Username Without @
-- `DB_URI` : Mongodb Database Url For Main Bot [Tutorial Watch Here](https://youtu.be/DAHRmFdw99o)
-- `CLONE_DB_URI` : Mongodb Database Url For Clone Bot [Tutorial Watch Here](https://youtu.be/DAHRmFdw99o)
-- `ADMINS` : It mean Admin/Owner Id For Broadcasting Message.
-- `LOG_CHANNEL` : Log channel id start with -100xxxxxx
-- `URL` : Your Server App Link With https:// and in last make sure one / is given.
-- `AUTO_DELETE` : Time In Minutes
-- `AUTO_DELETE_TIME` : Time In Seconds
-- `PYTHON_VERSION` : This Variable Is Only For Render, Value IS `3.10.8`
-- `PORT` : This Variable Is Only For Render, Value IS `8080`
+- `API_ID` : Obtener de [my.telegram.org](https://my.telegram.org)
+- `API_HASH` : Obtener de [my.telegram.org](https://my.telegram.org)
+- `BOT_TOKEN` : Obtener de [BotFather](https://telegram.me/BotFather)
+- `BOT_USERNAME` : Tu nombre de usuario del Bot (sin @)
+- `DB_URI` : URL de la base de datos de Mongodb para el Bot Principal [Ver Tutorial Aquí](https://youtu.be/DAHRmFdw99o)
+- `CLONE_DB_URI` : URL de la base de datos de Mongodb para el Bot Clon [Ver Tutorial Aquí](https://youtu.be/DAHRmFdw99o)
+- `ADMINS` : ID del Administrador/Propietario para Mensajes de Difusión.
+- `LOG_CHANNEL` : ID del canal de registro (comienza con -100xxxxxx)
+- `URL` : Enlace de tu Aplicación de Servidor con https:// y asegúrate de que termine con /.
+- `AUTO_DELETE` : Tiempo en Minutos
+- `AUTO_DELETE_TIME` : Tiempo en Segundos
+- `PYTHON_VERSION` : Esta variable es solo para Render, el valor es `3.10.8`
+- `PORT` : Esta variable es solo para Render, el valor es `8080`
+
+- `VERIFY_MODE`: `True` o `False`. Habilita la verificación de enlaces.
+- `SHORTLINK_URL`: Dominio del acortador (ej: `my.shortener.com`).
+- `SHORTLINK_API`: Clave API de tu acortador.
+- `VERIFY_TUTORIAL`: Enlace a un tutorial sobre cómo pasar la verificación.
+- `FORCE_SUB_ENABLED`: `True` o `False`. Habilita la suscripción forzada.
+- `FORCE_SUB_CHANNEL`: ID o username del canal de suscripción forzada (ej: `-1001234567890` o `@MiCanal`).
+- `FORCE_SUB_INVITE_LINK`: Enlace de invitación al canal de suscripción forzada.
+- `SKIP_FORCE_SUB_FOR_ADMINS`: `True` o `False`. Los administradores del bot pueden saltar la suscripción forzada.
 </b>
 </details>
 
-## See How Bot Look Like
+## Ver Cómo se Ve el Bot
 
-<b><details><summary>Tap On Me For Demo Bot</summary></b>
+<b><details><summary>Toca aquí para ver la Demo del Bot</summary></b>
 
 <img src="https://graph.org/file/bb9c59043c52072e8dc93.jpg" alt="Bot Demo">
 <img src="https://graph.org/file/295e41dfab93acf42a111.jpg" alt="Bot Demo">
@@ -56,54 +65,59 @@
 <img src="https://graph.org/file/1ce62a17012ed5723aaca.jpg" alt="Bot Demo">
 </details>
 
-## Command To Use Bot
+## Comandos para Usar el Bot
 
-<b><details><summary>Tap On Me For Bot Commands</summary>
+<b><details><summary>Toca aquí para ver los Comandos del Bot</summary>
 
-🖍️ Main Bot Commands :-
+🖍️ Comandos del Bot Principal:
 
-- `/start` : By This Command You Can Check Bot Is Alive Or Not
-- `/link` : By This Command You Can Generate A Shareable Link Of File By Replying This Command To That File
-- `/batch` : By This Command You Can Generate Multiple File Shareable Link At A Time [Use Like This /batch (first post link) (last post link)]
-- `/base_site` : By This Command You Can Set Your Url Shortner Domain [Use Like This /base_site domain.com]
-- `/api` : By This Command You Can Set Your Url Shortner Api [Use Like This /api (your api key)]
-- `/deletecloned` : By This Command You Can Delete Your Cloned Bot [Use Like This /deletecloned (your bot token)]
-- `/broadcast` : By Using This Command You Can Broadcast A Message To Your Bot User, Reply This Command To Broadcast Message [Owner Only Command]
+- `/start` : Con este comando puedes verificar si el bot está activo.
+- `/link` : Responde a un archivo multimedia para obtener un enlace compartible.
+- `/batch` : Genera enlaces compartibles para múltiples archivos a la vez. Úsalo así: `/batch (enlace_primera_publicación) (enlace_última_publicación)`. Asegúrate de que el bot sea administrador en tu canal de almacenamiento.
+- `/base_site` : Establece tu dominio de acortador de URL. Uso: `/base_site tudominio.com`.
+- `/api` : Establece tu clave API del acortador de URL. Uso: `/api (tu_clave_api)`.
+- `/addpremium [ID]` : Otorga acceso premium a un usuario (solo administradores).
+- `/addpremium [ID] [días]` : Otorga acceso premium por `X` días a un usuario (solo administradores).
+- `/delpremium [ID]` : Revoca el acceso premium de un usuario (solo administradores).
+- `/stats` : Muestra estadísticas de usuarios (solo administradores).
+- `/deletecloned` : Elimina tu bot clonado. Uso: `/deletecloned (tu_token_de_bot)`.
+- `/broadcast` : Responde a un mensaje para enviarlo a todos los usuarios del bot (solo propietario/administradores).
+- `/dbroadcast` : Responde a un mensaje para enviarlo a todos los usuarios del bot, y se auto-borrará después de un tiempo (solo propietarios/administradores).
 
-🖍️ Clone Bot Commands :- 
+🖍️ Comandos del Bot Clon:
 
-- `/start` : By This Command You Can Check Bot Is Alive Or Not
-- `/link` : By This Command You Can Generate A Shareable Link Of File By Replying This Command To That File
-- `/base_site` : By This Command You Can Set Your Url Shortner Domain [Use Like This /base_site domain.com]
-- `/api` : By This Command You Can Set Your Url Shortner Api [Use Like This /api (your api key)]
-- `/broadcast` : By Using This Command You Can Broadcast A Message To Your Bot User, Reply This Command To Broadcast Message [Clone Bot Owner Only Command]
+- `/start` : Con este comando puedes verificar si el bot está activo.
+- `/link` : Responde a un archivo multimedia para obtener un enlace compartible.
+- `/base_site` : Establece tu dominio de acortador de URL. Uso: `/base_site tudominio.com`.
+- `/api` : Establece tu clave API del acortador de URL. Uso: `/api (tu_clave_api)`.
+- `/broadcast` : Responde a un mensaje para enviarlo a todos los usuarios del bot clon (solo propietario del bot clon).
 
 </b>
 </details>
 
-## Credit
+## Créditos
 
-<b><details><summary>Tap On Me For See Credit</summary>
+<b><details><summary>Toca aquí para ver los Créditos</summary>
 
-💝 Credit Goes To [Tech VJ](https://telegram.me/Kingvj01)
+💝 Crédito a [Tech VJ](https://telegram.me/Kingvj01)
 
-🖍️ This Code Is Fully Written Or Coded And Public By [Tech VJ](https://telegram.me/Kingvj01) So Don't Forgot To Give Credit
+🖍️ Este Código Está Totalmente Escrito o Codificado y Publicado por [Tech VJ](https://telegram.me/Kingvj01), ¡Así que no olvides dar Crédito!
 
-💖 And Thank You So Much To All Who Help In This Journey 💕
+💖 ¡Y Muchas Gracias a Todos los que Ayudaron en este Viaje! 💕
 
 Copyright ©️ [Tech VJ](https://telegram.me/Kingvj01)
 
 </b>
 </details>
 
-## About Owner 
+## Sobre el Propietario
 
-<b><details><summary>Tap On Me For See Details Of Owner</summary>
+<b><details><summary>Toca aquí para ver los Detalles del Propietario</summary>
 
-- YouTube Channel : [Tech VJ](https://youtube.com/@Tech_VJ)
-- Telegram Channel : [VJ Botz](https://telegram.me/VJ_Botz)
-- Contact Link : [King VJ](https://telegram.me/Kingvj01)
-- Instagram Id Link : [Tech VJ](https://instagram.com/tech.vj)
+- Canal de YouTube : [Tech VJ](https://youtube.com/@Tech_VJ)
+- Canal de Telegram : [VJ Botz](https://telegram.me/VJ_Botz)
+- Enlace de Contacto : [King VJ](https://telegram.me/Kingvj01)
+- Enlace de ID de Instagram : [Tech VJ](https://instagram.com/tech.vj)
 
 </b>
 </details>
@@ -111,5 +125,4 @@ Copyright ©️ [Tech VJ](https://telegram.me/Kingvj01)
 
 ### Copyright ©️ [Tech VJ](https://telegram.me/Kingvj01)
 
-<b>Selling This Repo Or Code Of This Repo For Money Is Strictly Prohibited 🚫</b>
-
+<b>La Venta de este Repositorio o Código de este Repositorio por Dinero Está Estrictamente Prohibida 🚫</b>
