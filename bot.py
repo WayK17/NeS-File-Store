@@ -85,9 +85,9 @@ async def start_services():
     current_date = date.today() # Obtiene la fecha actual
     current_time = datetime.now(timezone_kolkata).strftime("%H:%M:%S %p") # Obtiene la hora actual formateada
     await StreamBot.send_message(
-        chat_id=LOG_CHANNEL,
-        text=script.RESTART_TXT.format(current_date, current_time)
-    )
+    chat_id=LOG_CHANNEL,
+    text=script.RESTART_TXT.format(today=current_date, time=current_time) # Corrección
+)
 
     print("✅ Bot iniciado exitosamente.")
     # Mantiene el bot en ejecución indefinidamente hasta que se detenga manualmente (ej. Ctrl+C)
