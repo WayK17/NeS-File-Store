@@ -8,12 +8,13 @@ import os
 import logging
 import random
 import asyncio
-import datetime # Necesario para calcular la expiración
+import datetime
 import re
 import json
 import base64
 from urllib.parse import quote_plus
 
+import aiohttp # Necesario para las peticiones asíncronas del acortador
 from validators import domain
 from pyrogram import Client, filters, enums
 from pyrogram.errors import (
@@ -22,25 +23,25 @@ from pyrogram.errors import (
 )
 from pyrogram.types import (
     Message, InlineKeyboardMarkup, InlineKeyboardButton,
-    CallbackQuery, InputMediaPhoto, WebAppInfo # Importaciones específicas
+    CallbackQuery, InputMediaPhoto, WebAppInfo
 )
 
-# Importaciones locales (asegúrate que las rutas sean correctas)
+# Importaciones locales
 from Script import script
 from plugins.dbusers import db
-from plugins.users_api import get_user, update_user_info # Relacionado con acortador
 from config import (
-    ADMINS, LOG_CHANNEL, CLONE_MODE, PICS, VERIFY_MODE, VERIFY_TUTORIAL,
+    ADMINS, LOG_CHANNEL, PICS, VERIFY_MODE, VERIFY_TUTORIAL,
     STREAM_MODE, URL, CUSTOM_FILE_CAPTION, BATCH_FILE_CAPTION,
     AUTO_DELETE_MODE, AUTO_DELETE_TIME, AUTO_DELETE, FORCE_SUB_ENABLED,
-    FORCE_SUB_CHANNEL, FORCE_SUB_INVITE_LINK, SKIP_FORCE_SUB_FOR_ADMINS
+    FORCE_SUB_CHANNEL, FORCE_SUB_INVITE_LINK, SKIP_FORCE_SUB_FOR_ADMINS,
+    SHORTLINK_API, SHORTLINK_URL # Importar SHORTLINK_API y SHORTLINK_URL
 )
 
-# Importar desde utils.py en la carpeta principal
+# Importar funciones de utils.py
 try:
     from utils import (
         check_user_membership, verify_user, check_token,
-        check_verification, get_token
+        check_verification, get_token, get_verify_shorted_link
     )
 except ImportError:
     logging.error("¡ADVERTENCIA! No se encontraron funciones en utils.py. Algunas características pueden fallar.")
@@ -49,6 +50,52 @@ except ImportError:
     async def check_token(c, u, t): return False
     async def check_verification(c, u): return True
     async def get_token(c, u, l): return "ERROR_TOKEN_NOT_FOUND"
+    async def get_verify_shorted_link(link): return link # Fallback para acortador de verificación
+
+
+# Lógica de las funciones de acortador movida aquí para eliminar plugins/users_api.py
+async def get_user_shortener_info(user_id):
+    """Obtiene la información de configuración del acortador para un usuario desde la DB principal."""
+    return await db.get_user_info(user_id)
+
+async def update_user_shortener_info(user_id, value: dict):
+    """Actualiza la información de configuración del acortador para un usuario en la DB principal."""
+    return await db.update_user_info(user_id, value)
+
+async def get_short_link_from_api(user_data, link):
+    """Intenta acortar un enlace usando la API y base_site del usuario o la configuración global."""
+    api_key_to_use = user_data.get("shortener_api")
+    base_site_to_use = user_data.get("base_site")
+
+    # Si el usuario no tiene una configuración personalizada, usa la global si existe y no está vacía
+    if not api_key_to_use or not base_site_to_use:
+        if SHORTLINK_API and SHORTLINK_URL:
+            api_key_to_use = SHORTLINK_API
+            base_site_to_use = SHORTLINK_URL
+            logger.debug(f"Usando configuración de acortador GLOBAL para {user_data.get('id')}.")
+        else:
+            logger.debug(f"Acortador no configurado para el usuario {user_data.get('id')} ni globalmente. Devolviendo enlace original.")
+            return link # No hay API configurada, devolver original
+
+    # Si la API global es "api.shareus.io", usar la función específica de utils.py
+    if base_site_to_use == "api.shareus.io":
+        logger.debug(f"Usando get_verify_shorted_link (shareus.io) para {user_data.get('id')}.")
+        return await get_verify_shorted_link(link)
+
+    # Para otros acortadores (shortzy style)
+    url = f"https://{base_site_to_use}/api?api={api_key_to_use}&url={link}"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                data = await response.json()
+                if response.status == 200 and data.get("status") == "success":
+                    return data.get("shortenedUrl")
+                else:
+                    logger.warning(f"Acortador falló para {user_data.get('id')}. Status: {response.status}, Res: {data.get('message', 'Desconocido')}. Original: {link}")
+                    return link
+    except Exception as e:
+        logger.error(f"Error al acortar URL para {user_data.get('id')}: {e}. Devolviendo enlace original.", exc_info=True)
+        return link
 
 # Importar desde TechVJ (con fallback)
 try:
@@ -61,7 +108,7 @@ except ImportError:
 
 # Configuración del Logger
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO) # Asegurarse de que los logs INFO se muestren
+logger.setLevel(logging.INFO)
 
 # Variable global
 BATCH_FILES = {}
@@ -100,6 +147,42 @@ def formate_file_name(file_name):
         logger.error(f"Error formateando nombre '{original_name}': {e}")
         return original_name # Devolver original en caso de error
 
+# --- Función allowed (sin cambios) ---
+async def allowed(_, __, message):
+    # Permite admins o todos si PUBLIC_FILE_STORE=True
+    if PUBLIC_FILE_STORE: return True
+    if message.from_user and message.from_user.id in ADMINS: return True
+    return False
+
+# --- Función auxiliar para generar y acortar (refactorizado para usar la nueva get_short_link_from_api) ---
+async def generate_and_shorten_link(bot_username, user_id, payload_encoded, website_mode=False, website_url=""):
+    """Genera enlace normal/web y lo acorta si es posible."""
+    if website_mode:
+        share_link = f"{website_url}?Tech_VJ={payload_encoded}"
+    else:
+        share_link = f"https://t.me/{bot_username}?start={payload_encoded}"
+
+    user = await get_user_shortener_info(user_id) # Obtener los datos del usuario para el acortador
+    final_link = share_link
+    is_shortened = False
+
+    if user: # Si hay datos de usuario
+        logger.debug(f"Intentando acortar enlace ({share_link}) para usuario {user_id}")
+        try:
+            short_link = await get_short_link_from_api(user, share_link)
+            if short_link and short_link.startswith("http"):
+                final_link = short_link
+                is_shortened = True
+                logger.debug(f"Enlace acortado: {final_link}")
+            else:
+                logger.warning(f"Acortador no devolvió enlace válido para {user_id}. Devuelto: {short_link}")
+        except Exception as short_err:
+             logger.error(f"Error al acortar enlace para {user_id}: {short_err}")
+    else:
+         logger.debug(f"No se acortará el enlace para {user_id} (usuario no encontrado o sin configuración).")
+
+    return final_link, is_shortened
+
 # --- Manejador del Comando /start ---
 @Client.on_message(filters.command("start") & filters.incoming & filters.private)
 async def start(client: Client, message: Message):
@@ -117,12 +200,18 @@ async def start(client: Client, message: Message):
             try:
                 await client.send_message(
                     LOG_CHANNEL,
-                    script.LOG_TEXT.format(user_id=user_id, user_mention=user_mention) # Usar argumentos nombrados
+                    script.LOG_TEXT.format(user_id=user_id, user_mention=user_mention)
                 )
             except Exception as log_err:
                 logger.error(f"Error enviando mensaje de nuevo usuario a LOG_CHANNEL {LOG_CHANNEL}: {log_err}")
         else:
             logger.warning("LOG_CHANNEL no está definido. No se pudo enviar log de nuevo usuario.")
+
+    # NUEVO: Comprobar si el usuario está baneado
+    if await db.is_user_banned(user_id):
+        logger.info(f"Usuario {user_id} ({user_mention}) está baneado. Negando acceso.")
+        return await message.reply_text("❌ Has sido baneado de usar este bot. Contacta al soporte si crees que es un error.")
+
 
     # Manejo de /start sin payload (Mensaje de Bienvenida)
     if len(message.command) == 1:
@@ -131,10 +220,7 @@ async def start(client: Client, message: Message):
             [InlineKeyboardButton('Únete a Nuestro Canal', url='https://t.me/Ness_Cloud')],
             [InlineKeyboardButton('⚠️ Grupo de Soporte', url='https://t.me/NESS_Soporte')]
         ]
-        # --- Botón Clonar Eliminado ---
-        # if not CLONE_MODE:
-        #     buttons_list.append([InlineKeyboardButton('🤖 Clonar Bot', callback_data='clone')])
-
+        # Botón Clonar Eliminado
         reply_markup = InlineKeyboardMarkup(buttons_list)
         me = client.me
         start_text = script.START_TXT.format(user_mention, me.mention)
@@ -207,13 +293,10 @@ async def start(client: Client, message: Message):
                 return # Detener procesamiento hasta que se una
         except UserNotParticipant:
              logger.info(f"Usuario {user_id} no es participante (probablemente baneado) de {FORCE_SUB_CHANNEL}")
-             # Aquí podrías enviar un mensaje diferente si quieres manejar baneados
         except ChatAdminRequired:
              logger.error(f"Error CRÍTICO: El bot necesita ser admin en el canal ForceSub {FORCE_SUB_CHANNEL}")
-             # Considera notificar a los admins del bot
         except Exception as fs_err:
             logger.error(f"Error CRÍTICO durante la comprobación ForceSub para {user_id}: {fs_err}", exc_info=True)
-            # Informar al usuario podría ser útil
             await message.reply_text("⚠️ Ocurrió un error al verificar tu membresía. Inténtalo de nuevo más tarde.")
             return
 
@@ -221,7 +304,7 @@ async def start(client: Client, message: Message):
     logger.info(f"Usuario {user_id} pasó chequeos iniciales o no aplican. Procesando payload: {payload_encoded_full}")
     is_batch = False
     base64_to_decode = payload_encoded_full
-    link_type = "normal" # Tipo por defecto
+    link_type = "normal"
     original_payload_id = ""
 
     if payload_encoded_full.startswith("BATCH-"):
@@ -229,13 +312,11 @@ async def start(client: Client, message: Message):
         base64_to_decode = payload_encoded_full[len("BATCH-"):]
 
     try:
-        # Añadir padding si es necesario para base64
         padding = 4 - (len(base64_to_decode) % 4)
-        padding = 0 if padding == 4 else padding # No añadir padding si ya es múltiplo de 4
+        padding = 0 if padding == 4 else padding
         payload_decoded = base64.urlsafe_b64decode(base64_to_decode + "=" * padding).decode("ascii")
-        original_payload_id = payload_decoded # Guardar el ID decodificado
+        original_payload_id = payload_decoded
 
-        # Determinar el tipo de enlace basado en prefijos
         if payload_decoded.startswith("premium:"):
             link_type = "premium"
             original_payload_id = payload_decoded[len("premium:"):]
@@ -243,11 +324,9 @@ async def start(client: Client, message: Message):
             link_type = "normal"
             original_payload_id = payload_decoded[len("normal:"):]
         elif payload_decoded.startswith("verify-"):
-            link_type = "special" # Usado para el proceso de verificación en sí
-            # original_payload_id ya es 'verify-userid-token'
+            link_type = "special"
         else:
             logger.warning(f"Payload decodificado '{payload_decoded}' para {user_id} no tiene prefijo conocido. Asumiendo 'normal'.")
-            # original_payload_id ya tiene el valor decodificado
 
         logger.debug(f"Payload decodificado: Tipo='{link_type}', ID Original='{original_payload_id}'")
 
@@ -267,7 +346,7 @@ async def start(client: Client, message: Message):
         logger.info(f"Acceso denegado: Usuario normal {user_id} intentando acceder a enlace premium '{original_payload_id}'.")
         try:
             await message.reply_text(script.PREMIUM_REQUIRED_MSG.format(mention=user_mention), quote=True)
-        except AttributeError: # Si el script no tiene esa variable
+        except AttributeError:
             await message.reply_text("❌ Acceso denegado. Este es un enlace solo para usuarios Premium.", quote=True)
         return
     elif link_type == "premium" and is_admin_user and not is_premium_user:
@@ -277,13 +356,12 @@ async def start(client: Client, message: Message):
 
     # Chequeo de Verificación (si está activado y no es un enlace de verificación)
     try:
-        # Solo aplicar si VERIFY_MODE está ON y el payload NO es del tipo 'verify-'
-        apply_verify_check = VERIFY_MODE and link_type != "special" # "special" es 'verify-...'
+        apply_verify_check = VERIFY_MODE and link_type != "special"
         if apply_verify_check and not await check_verification(client, user_id):
             logger.info(f"Usuario {user_id} necesita verificación para acceder al enlace ({link_type}) '{original_payload_id}'.")
-            verify_url = await get_token(client, user_id, f"https://t.me/{username}?start=") # Obtener token/URL de verificación
+            verify_url = await get_token(client, user_id, f"https://t.me/{username}?start=")
 
-            if "ERROR" in verify_url: # Si get_token falló
+            if "ERROR" in verify_url:
                  logger.error(f"No se pudo obtener el token de verificación para {user_id}. Fallback a mensaje simple.")
                  await message.reply_text(
                      "🔒 **Verificación Requerida**\n\n"
@@ -300,10 +378,10 @@ async def start(client: Client, message: Message):
             await message.reply_text(
                  "🔒 **Verificación Requerida**\n\n"
                  "Por favor, completa la verificación para acceder al enlace. Haz clic en el botón de abajo.",
-                 protect_content=True, # Evitar reenvío del mensaje de verificación
+                 protect_content=True,
                  reply_markup=InlineKeyboardMarkup(btn_list)
             )
-            return # Detener hasta que verifique
+            return
     except Exception as e:
         logger.error(f"Error durante check_verification para {user_id}: {e}", exc_info=True)
         await message.reply_text(f"❌ Ocurrió un error durante el proceso de verificación: {e}")
@@ -317,26 +395,22 @@ async def start(client: Client, message: Message):
         logger.debug(f"Manejando payload de confirmación 'verify' para {user_id}")
         try:
             parts = original_payload_id.split("-")
-            # Asegurarse de que hay 3 partes: 'verify', userid, token
             if len(parts) != 3: raise ValueError("Formato de token de verificación incorrecto.")
             _, verify_userid_str, token = parts
             verify_userid = int(verify_userid_str)
 
-            # Comprobar que el usuario que hace clic es el dueño del token
             if user_id != verify_userid:
                  logger.warning(f"Usuario {user_id} intentó usar token de verificación de {verify_userid}.")
                  raise PermissionError("Este enlace de verificación no es para ti.")
 
-            # Validar el token con el sistema (check_token)
             if not await check_token(client, verify_userid, token):
                  logger.warning(f"Token de verificación inválido o expirado para {verify_userid}: {token}")
                  raise ValueError("Token inválido o expirado.")
 
-            # Si todo es válido, marcar como verificado y notificar
-            await verify_user(client, verify_userid, token) # Marcar usuario como verificado
+            await verify_user(client, verify_userid, token)
             await message.reply_text(
                 f"✅ ¡Hola {user_mention}! Has sido verificado correctamente. Ahora puedes intentar acceder al enlace original de nuevo.",
-                protect_content=True # Para que no reenvíen el mensaje de éxito
+                protect_content=True
             )
             logger.info(f"Usuario {verify_userid} verificado exitosamente con token {token}.")
 
@@ -346,26 +420,24 @@ async def start(client: Client, message: Message):
         except Exception as generic_verify_e:
              logger.error(f"Error inesperado procesando token de verificación '{original_payload_id}' para {user_id}: {generic_verify_e}", exc_info=True)
              await message.reply_text("❌ Ocurrió un error inesperado durante la verificación.", protect_content=True)
-        return # Terminar aquí después de procesar la verificación
+        return
 
     # Lógica para BATCH (Lotes de archivos)
     elif is_batch:
-        batch_json_msg_id = original_payload_id # El ID decodificado es el ID del mensaje JSON
+        batch_json_msg_id = original_payload_id
         logger.info(f"Procesando solicitud de BATCH. ID del mensaje JSON en LOG_CHANNEL: {batch_json_msg_id}")
         sts = await message.reply_text("⏳ **Procesando lote de archivos...** Por favor, espera.", quote=True)
 
-        msgs = BATCH_FILES.get(batch_json_msg_id) # Intentar obtener de caché primero
+        msgs = BATCH_FILES.get(batch_json_msg_id)
         if not msgs:
             logger.debug(f"Info de BATCH {batch_json_msg_id} no encontrada en caché. Intentando descargar desde LOG_CHANNEL.")
-            file_path = None # Inicializar fuera del try para el finally
+            file_path = None
             try:
-                # Determinar si LOG_CHANNEL es numérico (ID) o string (username)
                 try:
                     log_channel_int = int(LOG_CHANNEL)
                 except ValueError:
-                     log_channel_int = str(LOG_CHANNEL) # Mantener como string si no es número
+                     log_channel_int = str(LOG_CHANNEL)
 
-                # Obtener el mensaje que contiene el archivo JSON
                 batch_list_msg = await client.get_messages(log_channel_int, int(batch_json_msg_id))
 
                 if not batch_list_msg or not batch_list_msg.document:
@@ -373,17 +445,13 @@ async def start(client: Client, message: Message):
 
                 if not batch_list_msg.document.file_name.endswith('.json'):
                      logger.warning(f"El documento en msg {batch_json_msg_id} no parece ser JSON: {batch_list_msg.document.file_name}")
-                     # Podrías decidir parar aquí o intentar cargarlo de todos modos
 
-                # Descargar el archivo JSON
                 logger.debug(f"Descargando archivo JSON del mensaje {batch_json_msg_id}...")
-                file_path = await client.download_media(batch_list_msg.document.file_id, file_name=f"./{batch_json_msg_id}.json") # Guardar en disco temporalmente
+                file_path = await client.download_media(batch_list_msg.document.file_id, file_name=f"./{batch_json_msg_id}.json")
 
-                # Cargar el JSON desde el archivo
-                with open(file_path, 'r', encoding='utf-8') as fd: # Especificar encoding
+                with open(file_path, 'r', encoding='utf-8') as fd:
                     msgs = json.load(fd)
 
-                # Guardar en caché si se cargó correctamente
                 BATCH_FILES[batch_json_msg_id] = msgs
                 logger.info(f"Info de BATCH {batch_json_msg_id} cargada desde archivo y guardada en caché ({len(msgs)} elementos).")
 
@@ -397,7 +465,6 @@ async def start(client: Client, message: Message):
                 logger.error(f"Error cargando BATCH {batch_json_msg_id} desde LOG_CHANNEL: {batch_load_err}", exc_info=True)
                 return await sts.edit_text("❌ Ocurrió un error inesperado al cargar la información del lote.")
             finally:
-                 # Asegurarse de borrar el archivo JSON descargado
                  if file_path and os.path.exists(file_path):
                      try:
                          os.remove(file_path)
@@ -405,22 +472,19 @@ async def start(client: Client, message: Message):
                      except OSError as rm_err:
                           logger.error(f"No se pudo eliminar el archivo temporal JSON {file_path}: {rm_err}")
 
-        # Verificar si 'msgs' se cargó correctamente (desde caché o archivo)
         if not msgs or not isinstance(msgs, list):
             logger.error(f"Error BATCH: La información cargada para {batch_json_msg_id} está vacía o no es una lista.")
             return await sts.edit_text("❌ Error: La información del lote está vacía o tiene un formato incorrecto.")
 
-        filesarr = [] # Lista para guardar los mensajes enviados (para auto-delete)
+        filesarr = []
         total_msgs = len(msgs)
         logger.info(f"Enviando {total_msgs} mensajes del BATCH {batch_json_msg_id} al usuario {user_id}")
         await sts.edit_text(f"⏳ Enviando lote... (0/{total_msgs})")
 
-        # --- Bucle de envío BATCH con lógica de caption ---
         for i, msg_info in enumerate(msgs):
             channel_id = msg_info.get("channel_id")
             msgid = msg_info.get("msg_id")
 
-            # Validar que tenemos IDs válidos
             if not channel_id or not msgid:
                 logger.warning(f"Elemento {i} del BATCH {batch_json_msg_id} no tiene channel_id o msg_id válidos. Saltando.")
                 continue
@@ -429,14 +493,12 @@ async def start(client: Client, message: Message):
                 channel_id = int(channel_id)
                 msgid = int(msgid)
 
-                # Obtener el mensaje original desde el canal fuente
                 original_msg = await client.get_messages(channel_id, msgid)
                 if not original_msg:
                     logger.warning(f"No se pudo obtener el mensaje original {msgid} del canal {channel_id}. Saltando.")
                     continue
 
-                # --- Preparar Caption y Botones para el mensaje BATCH ---
-                f_caption_batch = None # Usar None por defecto si no hay media o caption
+                f_caption_batch = None
                 stream_reply_markup_batch = None
                 title_batch = "N/A"
                 size_batch = "N/A"
@@ -445,17 +507,15 @@ async def start(client: Client, message: Message):
                     media_batch = getattr(original_msg, original_msg.media.value, None)
                     if media_batch:
                         f_caption_orig_batch = getattr(original_msg, 'caption', '')
-                        # Usar .html si existe para preservar formato
                         if f_caption_orig_batch and hasattr(f_caption_orig_batch, 'html'):
                             f_caption_orig_batch = f_caption_orig_batch.html
                         elif f_caption_orig_batch:
-                             f_caption_orig_batch = str(f_caption_orig_batch) # Convertir a string si no es html
+                             f_caption_orig_batch = str(f_caption_orig_batch)
 
                         old_title_batch = getattr(media_batch, "file_name", "")
                         title_batch = formate_file_name(old_title_batch) if old_title_batch else "archivo_desconocido"
                         size_batch = get_size(getattr(media_batch, "file_size", 0))
 
-                        # Formatear caption según configuración
                         if BATCH_FILE_CAPTION:
                             try:
                                 f_caption_batch = BATCH_FILE_CAPTION.format(
@@ -465,17 +525,14 @@ async def start(client: Client, message: Message):
                                 )
                             except Exception as cap_fmt_err_batch:
                                 logger.warning(f"Error formateando BATCH_FILE_CAPTION para msg {msgid}: {cap_fmt_err_batch}. Usando fallback.")
-                                # Fallback: Usar caption original o nombre de archivo
                                 f_caption_batch = f_caption_orig_batch if f_caption_orig_batch else f"<code>{title_batch}</code>"
-                        elif f_caption_orig_batch: # Usar caption original si no hay formato config
+                        elif f_caption_orig_batch:
                             f_caption_batch = f_caption_orig_batch
-                        else: # Usar solo nombre de archivo como último recurso si no hay caption original
+                        else:
                             f_caption_batch = f"<code>{title_batch}</code>"
 
-                    # Generar botones de Stream si aplica
                     if STREAM_MODE and (original_msg.video or original_msg.document):
                         try:
-                            # Asegurarse de que get_name y get_hash devuelven algo usable
                             file_name_for_url = get_name(original_msg)
                             file_hash = get_hash(original_msg)
                             if not file_name_for_url or not file_hash:
@@ -491,21 +548,17 @@ async def start(client: Client, message: Message):
                             stream_reply_markup_batch = InlineKeyboardMarkup(stream_buttons)
                         except Exception as stream_err:
                             logger.error(f"Error generando botones de stream BATCH para msg {msgid}: {stream_err}")
-                            stream_reply_markup_batch = None # No poner botones si falló
+                            stream_reply_markup_batch = None
                 else:
-                     # Si el mensaje original es solo texto, el caption será None
                      f_caption_batch = None
 
-                # Copiar el mensaje usando el caption y botones preparados
                 sent_msg = await original_msg.copy(
                     chat_id=user_id,
-                    caption=f_caption_batch, # Pyrogram maneja si es None
-                    reply_markup=stream_reply_markup_batch # Pyrogram maneja si es None
-                    # protect_content se hereda por defecto al copiar, si quieres cambiarlo: protect_content=False
+                    caption=f_caption_batch,
+                    reply_markup=stream_reply_markup_batch
                 )
-                filesarr.append(sent_msg) # Añadir a la lista para posible auto-borrado
+                filesarr.append(sent_msg)
 
-                # Actualizar estado cada cierto número de mensajes
                 if (i + 1) % 10 == 0 or (i + 1) == total_msgs:
                      try: await sts.edit_text(f"⏳ Enviando lote... ({i + 1}/{total_msgs})")
                      except MessageNotModified: pass
@@ -513,22 +566,19 @@ async def start(client: Client, message: Message):
                           logger.warning(f"FloodWait al actualizar estado BATCH ({fw_sts.value}s). Continuando...")
                           await asyncio.sleep(fw_sts.value + 1)
 
-                # Pausa corta para evitar flood
-                await asyncio.sleep(0.5) # Ajustar si es necesario
+                await asyncio.sleep(0.5)
 
             except FloodWait as fw_err:
                 wait_time = fw_err.value
                 logger.warning(f"FloodWait en BATCH item {i} (msg {msgid}). Esperando {wait_time} segundos.")
                 await sts.edit_text(f"⏳ Enviando lote... ({i}/{total_msgs})\n"
                                     f"Pausa por FloodWait ({wait_time}s)")
-                await asyncio.sleep(wait_time + 2) # Esperar tiempo + margen
-                # Reintentar enviar el mismo mensaje después de la espera
+                await asyncio.sleep(wait_time + 2)
                 try:
                     logger.info(f"Reintentando enviar BATCH item {i} (msg {msgid}) después de FloodWait.")
-                    # Re-obtener y re-copiar (simplificado, podrías re-aplicar toda la lógica de caption/botones si fuera necesario)
                     original_msg_retry = await client.get_messages(channel_id, msgid)
                     if original_msg_retry:
-                         sent_msg_retry = await original_msg_retry.copy(user_id) # Copia simple en reintento
+                         sent_msg_retry = await original_msg_retry.copy(user_id)
                          filesarr.append(sent_msg_retry)
                          logger.info(f"Reintento BATCH item {i} exitoso.")
                     else: logger.error(f"Fallo al re-obtener msg {msgid} en reintento.")
@@ -536,11 +586,7 @@ async def start(client: Client, message: Message):
                     logger.error(f"Error CRÍTICO al reintentar BATCH item {i} (msg {msgid}): {retry_err}")
             except Exception as loop_err:
                 logger.error(f"Error procesando BATCH item {i} (msg {msgid} de canal {channel_id}): {loop_err}", exc_info=True)
-                # Podrías notificar al usuario sobre errores específicos si es necesario
 
-        # --- FIN DEL BUCLE for ---
-
-        # Borrar mensaje "Procesando..."
         try:
             await sts.delete()
         except Exception as del_sts_err:
@@ -548,14 +594,12 @@ async def start(client: Client, message: Message):
 
         logger.info(f"Envío BATCH {batch_json_msg_id} a {user_id} completado. {len(filesarr)}/{total_msgs} mensajes enviados.")
 
-        # Auto-Delete BATCH (si está activado y se enviaron archivos)
         if AUTO_DELETE_MODE and filesarr:
             logger.info(f"Iniciando Auto-Delete para el lote enviado a {user_id} ({len(filesarr)} archivos). Tiempo: {AUTO_DELETE_TIME}s")
             try:
-                # --- Mensaje IMPORTANTE Actualizado ---
                 warn_msg_text = (
                     f"<blockquote><b><u>❗️❗️❗️IMPORTANTE❗️️❗️❗️</u></b>\n\n"
-                    f"Este mensaje será eliminado en <b><u>{AUTO_DELETE} minutos</u></b> 🫥 " # Usando la variable AUTO_DELETE
+                    f"Este mensaje será eliminado en <b><u>{AUTO_DELETE} minutos</u></b> 🫥 "
                     f"<i>(Debido a problemas de derechos de autor)</i>.\n\n"
                     f"<b><i>Por favor, reenvía este mensaje a tus mensajes guardados o a cualquier chat privado.</i></b></blockquote>"
                 )
@@ -564,11 +608,8 @@ async def start(client: Client, message: Message):
                     text=warn_msg_text,
                     parse_mode=enums.ParseMode.HTML
                 )
-
-                # Esperar el tiempo configurado
                 await asyncio.sleep(AUTO_DELETE_TIME)
 
-                # Borrar los mensajes enviados
                 deleted_count = 0
                 logger.debug(f"Tiempo de espera {AUTO_DELETE_TIME}s finalizado. Borrando mensajes BATCH para {user_id}...")
                 for msg_to_delete in filesarr:
@@ -580,7 +621,6 @@ async def start(client: Client, message: Message):
                     except Exception as del_err:
                         logger.error(f"Error borrando mensaje BATCH {msg_to_delete.id} para {user_id}: {del_err}")
 
-                # Editar mensaje de advertencia para confirmar el borrado
                 try:
                     await k.edit_text(f"✅ <b>{deleted_count}/{len(filesarr)} mensajes del lote anterior fueron eliminados automáticamente.</b>")
                 except Exception as edit_k_err:
@@ -592,15 +632,14 @@ async def start(client: Client, message: Message):
                 logger.error(f"Error durante el proceso Auto-Delete BATCH para {user_id}: {auto_del_batch_err}", exc_info=True)
         elif not filesarr:
              logger.info(f"No se enviaron archivos en el lote {batch_json_msg_id} a {user_id}. Auto-Delete no aplica.")
-        else: # AUTO_DELETE_MODE is False
+        else:
             logger.info(f"Auto-Delete BATCH desactivado. Los archivos enviados a {user_id} permanecerán.")
-        return # Fin de la lógica BATCH
+        return
 
     # Lógica para Archivo Único
     else:
         logger.info(f"Procesando solicitud de Archivo Único. Payload original ID: {original_payload_id}")
         try:
-            # Determinar el ID numérico del mensaje a enviar
             if original_payload_id.startswith("file_"):
                 try:
                     parts = original_payload_id.split("_")
@@ -617,13 +656,11 @@ async def start(client: Client, message: Message):
                 decode_file_id = int(original_payload_id)
                 logger.debug(f"Payload no empieza con 'file_', asumiendo ID directo: {decode_file_id}")
 
-            # Obtener el canal de logs
             try:
                 log_channel_int = int(LOG_CHANNEL)
             except ValueError:
                 log_channel_int = str(LOG_CHANNEL)
 
-            # Obtener el mensaje original desde el canal de logs
             logger.debug(f"Intentando obtener mensaje {decode_file_id} desde {log_channel_int}...")
             original_msg = await client.get_messages(log_channel_int, decode_file_id)
 
@@ -632,9 +669,8 @@ async def start(client: Client, message: Message):
 
             logger.info(f"Mensaje {decode_file_id} obtenido. Preparando para enviar a {user_id}.")
 
-            # --- Preparar Caption y Botones para el Archivo Único ---
-            f_caption = None # Por defecto
-            reply_markup = None # Por defecto
+            f_caption = None
+            reply_markup = None
             title = "N/A"
             size = "N/A"
 
@@ -694,8 +730,6 @@ async def start(client: Client, message: Message):
                  f_caption = None
                  reply_markup = None
 
-            # Copiar el mensaje al usuario usando caption/botones preparados
-            logger.debug(f"Copiando mensaje {original_msg.id} a {user_id} con caption: '{str(f_caption)[:50]}...' y markup: {reply_markup is not None}")
             sent_file_msg = await original_msg.copy(
                 chat_id=user_id,
                 caption=f_caption,
@@ -704,14 +738,12 @@ async def start(client: Client, message: Message):
             )
             logger.info(f"Mensaje {original_msg.id} enviado a {user_id} como mensaje {sent_file_msg.id}")
 
-            # Auto-Delete para Archivo Único (si está activado)
             if AUTO_DELETE_MODE:
                 logger.info(f"Iniciando Auto-Delete para archivo único {sent_file_msg.id} enviado a {user_id}. Tiempo: {AUTO_DELETE_TIME}s")
                 try:
-                    # --- Mensaje IMPORTANTE Actualizado ---
                     warn_msg_text = (
                         f"<blockquote><b><u>❗️❗️❗️IMPORTANTE❗️️❗️❗️</u></b>\n\n"
-                        f"Este mensaje será eliminado en <b><u>{AUTO_DELETE} minutos</u></b> 🫥 " # Usando la variable AUTO_DELETE
+                        f"Este mensaje será eliminado en <b><u>{AUTO_DELETE} minutos</u></b> 🫥 "
                         f"<i>(Debido a problemas de derechos de autor)</i>.\n\n"
                         f"<b><i>Por favor, reenvía este mensaje a tus mensajes guardados o a cualquier chat privado.</i></b></blockquote>"
                     )
@@ -720,11 +752,8 @@ async def start(client: Client, message: Message):
                         text=warn_msg_text,
                         parse_mode=enums.ParseMode.HTML
                     )
-
-                    # Esperar
                     await asyncio.sleep(AUTO_DELETE_TIME)
 
-                    # Borrar el archivo enviado
                     logger.debug(f"Tiempo de espera {AUTO_DELETE_TIME}s finalizado. Borrando mensaje {sent_file_msg.id} para {user_id}...")
                     try:
                         await sent_file_msg.delete()
@@ -734,7 +763,6 @@ async def start(client: Client, message: Message):
                     except Exception as del_err:
                          logger.error(f"Error al borrar mensaje {sent_file_msg.id} en auto-delete: {del_err}")
 
-                    # Editar mensaje de advertencia para confirmar
                     try:
                         await k.edit_text("✅ <b>El mensaje anterior fue eliminado automáticamente.</b>")
                     except Exception as edit_k_err:
@@ -746,7 +774,7 @@ async def start(client: Client, message: Message):
                     logger.error(f"Error durante el proceso Auto-Delete de archivo único para {user_id}: {auto_del_err}", exc_info=True)
             else:
                 logger.debug(f"Auto-Delete para archivo único desactivado para el usuario {user_id}.")
-            return # Fin de la lógica de archivo único
+            return
 
         except MessageIdInvalid as e:
             logger.error(f"Error Archivo Único: {e}. Payload original: {original_payload_id}")
@@ -764,72 +792,46 @@ async def start(client: Client, message: Message):
 async def shortener_api_handler(client, m: Message):
     """Maneja el comando /api para ver o establecer la API del acortador."""
     user_id = m.from_user.id
-    log_prefix = f"CMD /api (User: {user_id}):" # Prefijo para logs
+    log_prefix = f"CMD /api (User: {user_id}):"
 
     try:
-        user_data = await get_user(user_id) # Puede devolver None si no se encuentra
-
-        # --- MODIFICACIÓN: Comprobar si user_data es None ---
+        user_data = await get_user_shortener_info(user_id)
         if user_data is None:
-            logger.warning(f"{log_prefix} No se encontraron datos para el usuario {user_id} en users_api.")
-            # Asignar valores por defecto o mostrar error específico
+            logger.warning(f"{log_prefix} No se encontraron datos para el usuario {user_id}.")
             user_base_site = "No Encontrado"
             user_shortener_api = "No Encontrada"
-            # Opcionalmente, podrías parar aquí si es un error crítico para la función:
-            # return await m.reply_text("❌ No se pudo encontrar tu configuración de API. Asegúrate de estar registrado en el sistema de usuarios.")
         else:
-            # Proceder como antes si user_data no es None
             user_base_site = user_data.get("base_site", "No Configurado")
             user_shortener_api = user_data.get("shortener_api", "No Configurada")
 
-        logger.debug(f"{log_prefix} Datos (posiblemente por defecto): base_site='{user_base_site}', api='{str(user_shortener_api)[:5]}...'")
-
     except Exception as e:
-        # Captura otros posibles errores durante get_user
-        logger.error(f"{log_prefix} Error EXCEPCIONAL al obtener datos del usuario desde users_api: {e}", exc_info=True)
+        logger.error(f"{log_prefix} Error EXCEPCIONAL al obtener datos del usuario para API: {e}", exc_info=True)
         return await m.reply_text("❌ Ocurrió un error crítico al consultar tu configuración de API.")
 
     cmd = m.command
-    # Comando sin argumentos: Mostrar configuración actual
     if len(cmd) == 1:
-        try:
-            # Asegurarse de que el texto del script exista
-            if hasattr(script, 'SHORTENER_API_MESSAGE'):
-                 # Usar los valores (posiblemente por defecto) obtenidos arriba
-                 s = script.SHORTENER_API_MESSAGE.format(base_site=user_base_site, shortener_api=user_shortener_api)
-                 await m.reply_text(s)
-            else:
-                 logger.error(f"{log_prefix} La variable 'SHORTENER_API_MESSAGE' no existe en 'Script'.")
-                 await m.reply_text(f"Tu API actual: `{user_shortener_api}`\nTu Sitio Base: `{user_base_site}`")
-        except Exception as fmt_err:
-            logger.error(f"{log_prefix} Error formateando SHORTENER_API_MESSAGE: {fmt_err}")
-            await m.reply_text("❌ Ocurrió un error al mostrar tu configuración de API.")
-
-    # Comando con un argumento: Establecer o eliminar API
+        if hasattr(script, 'SHORTENER_API_MESSAGE'):
+             s = script.SHORTENER_API_MESSAGE.format(base_site=user_base_site, shortener_api=user_shortener_api)
+             await m.reply_text(s)
+        else:
+             logger.error(f"{log_prefix} La variable 'SHORTENER_API_MESSAGE' no existe en 'Script'.")
+             await m.reply_text(f"Tu API actual: `{user_shortener_api}`\nTu Sitio Base: `{user_base_site}`")
     elif len(cmd) == 2:
-        # La lógica de actualización puede fallar si el usuario no existe realmente en users_api
-        # pero el try/except existente debería manejarlo.
         api_key_input = cmd[1].strip()
         update_value = None if api_key_input.lower() == "none" else api_key_input
-
         if update_value == "":
             logger.warning(f"{log_prefix} Intento de establecer API vacía.")
             return await m.reply_text("❌ La clave API no puede ser una cadena vacía. Usa `/api None` para eliminarla.")
 
-        log_msg_action = "eliminando" if update_value is None else f"actualizando a: {api_key_input[:5]}..."
-        logger.info(f"{log_prefix} {log_msg_action} la Shortener API.")
-
+        logger.info(f"{log_prefix} {'eliminando' if update_value is None else 'actualizando a: ' + api_key_input[:5] + '...'} la Shortener API.")
         try:
-            # Esta llamada podría fallar si users_api requiere que el user exista
-            await update_user_info(user_id, {"shortener_api": update_value})
+            await update_user_shortener_info(user_id, {"shortener_api": update_value})
             reply_msg = "✅ Tu API de acortador ha sido eliminada." if update_value is None else "✅ Tu API de acortador ha sido actualizada correctamente."
             await m.reply_text(reply_msg)
             logger.info(f"{log_prefix} Actualización de API (intento) exitosa.")
         except Exception as e:
-            logger.error(f"{log_prefix} Error al actualizar la API en users_api: {e}")
-            await m.reply_text("❌ Ocurrió un error al intentar actualizar tu API (¿Estás registrado en el sistema de usuarios?).")
-
-    # Comando con formato incorrecto
+            logger.error(f"{log_prefix} Error al actualizar la API: {e}")
+            await m.reply_text("❌ Ocurrió un error al intentar actualizar tu API.")
     else:
         logger.warning(f"{log_prefix} Uso incorrecto del comando: {' '.join(cmd)}")
         await m.reply_text(
@@ -846,21 +848,18 @@ async def base_site_handler(client, m: Message):
     log_prefix = f"CMD /base_site (User: {user_id}):"
 
     try:
-        user_data = await get_user(user_id)
-        # --- MODIFICACIÓN: Comprobar si user_data es None ---
+        user_data = await get_user_shortener_info(user_id)
         if user_data is None:
-            logger.warning(f"{log_prefix} No se encontraron datos para el usuario {user_id} en users_api.")
+            logger.warning(f"{log_prefix} No se encontraron datos para el usuario {user_id}.")
             current_site = "No Encontrado"
         else:
             current_site = user_data.get("base_site", "Ninguno configurado")
 
-        logger.debug(f"{log_prefix} Sitio base actual (puede ser por defecto): '{current_site}'")
     except Exception as e:
-        logger.error(f"{log_prefix} Error EXCEPCIONAL al obtener datos del usuario desde users_api: {e}", exc_info=True)
+        logger.error(f"{log_prefix} Error EXCEPCIONAL al obtener datos del usuario para sitio base: {e}", exc_info=True)
         return await m.reply_text("❌ Ocurrió un error crítico al consultar tu configuración de sitio base.")
 
     cmd = m.command
-    # Texto de ayuda/estado base
     help_text = (
         f"⚙️ **Configuración del Sitio Base del Acortador**\n\n"
         f"Tu sitio base actual es: `{current_site}`\n\n"
@@ -869,43 +868,31 @@ async def base_site_handler(client, m: Message):
         "➡️ Para eliminar el sitio base configurado:\n`/base_site None`"
     )
 
-    # Comando sin argumentos: Mostrar estado y ayuda
     if len(cmd) == 1:
         await m.reply_text(text=help_text, disable_web_page_preview=True)
-
-    # Comando con un argumento: Establecer o eliminar sitio base
     elif len(cmd) == 2:
         base_site_input = cmd[1].strip()
-
-        # Eliminar sitio base
         if base_site_input.lower() == "none":
             logger.info(f"{log_prefix} Solicitud para eliminar el sitio base.")
             try:
-                # Podría fallar si el usuario no existe en users_api
-                await update_user_info(user_id, {"base_site": None})
+                await update_user_shortener_info(user_id, {"base_site": None})
                 await m.reply_text("✅ Tu sitio base ha sido eliminado.")
                 logger.info(f"{log_prefix} Eliminación de sitio base (intento) exitosa.")
             except Exception as e:
-                logger.error(f"{log_prefix} Error al eliminar el sitio base en users_api: {e}")
-                await m.reply_text("❌ Ocurrió un error al intentar eliminar tu sitio base (¿Estás registrado?).")
-
-        # Establecer nuevo sitio base
+                logger.error(f"{log_prefix} Error al eliminar el sitio base: {e}")
+                await m.reply_text("❌ Ocurrió un error al intentar eliminar tu sitio base.")
         else:
-            # Validar si es un dominio válido (básico)
-            is_valid = False # Asumir inválido inicialmente
-            domain_to_save = base_site_input # Guardar el input limpio
+            is_valid = False
+            domain_to_save = base_site_input
             try:
-                # Usar http:// temporalmente para la validación
                 temp_url_for_validation = f"http://{domain_to_save}"
                 is_valid = domain(temp_url_for_validation)
             except Exception as val_err:
-                # Capturar error de validación específico
                 logger.warning(f"{log_prefix} Validación de dominio fallida para '{domain_to_save}': {val_err}")
                 is_valid = False
 
             if not is_valid:
                 logger.warning(f"{log_prefix} Intento de establecer sitio base inválido: '{domain_to_save}'")
-                # Devolver texto de ayuda + error específico
                 return await m.reply_text(
                     f"{help_text}\n\n"
                     f"❌ **Error:** '{domain_to_save}' no parece ser un nombre de dominio válido. "
@@ -913,18 +900,14 @@ async def base_site_handler(client, m: Message):
                     disable_web_page_preview=True
                 )
 
-            # Si la validación pasa
             logger.info(f"{log_prefix} Solicitud para actualizar sitio base a: '{domain_to_save}'")
             try:
-                 # Podría fallar si el usuario no existe en users_api
-                await update_user_info(user_id, {"base_site": domain_to_save})
+                await update_user_shortener_info(user_id, {"base_site": domain_to_save})
                 await m.reply_text(f"✅ Tu sitio base ha sido actualizado a: `{domain_to_save}`")
                 logger.info(f"{log_prefix} Actualización de sitio base (intento) exitosa.")
             except Exception as e:
-                logger.error(f"{log_prefix} Error al actualizar el sitio base en users_api: {e}")
-                await m.reply_text("❌ Ocurrió un error al intentar actualizar tu sitio base (¿Estás registrado?).")
-
-    # Comando con formato incorrecto
+                logger.error(f"{log_prefix} Error al actualizar el sitio base: {e}")
+                await m.reply_text("❌ Ocurrió un error al intentar actualizar tu sitio base.")
     else:
         logger.warning(f"{log_prefix} Uso incorrecto del comando: {' '.join(cmd)}")
         await m.reply_text(
@@ -934,17 +917,22 @@ async def base_site_handler(client, m: Message):
 
 @Client.on_message(filters.command("stats") & filters.private & filters.user(ADMINS))
 async def simple_stats_command(client, message: Message):
-    """Muestra estadísticas básicas (solo para admins)."""
+    """Muestra estadísticas básicas y mejoradas (solo para admins)."""
     log_prefix = f"CMD /stats (Admin: {message.from_user.id}):"
 
     try:
         await client.send_chat_action(message.chat.id, enums.ChatAction.TYPING)
         total_users = await db.total_users_count()
-        logger.info(f"{log_prefix} Obteniendo estadísticas. Total usuarios: {total_users}")
+        premium_users_count = await db.col.count_documents({'is_premium': True})
+        banned_users_count = await db.col.count_documents({'is_banned': True})
+
+        logger.info(f"{log_prefix} Obteniendo estadísticas. Total usuarios: {total_users}, Premium: {premium_users_count}, Baneados: {banned_users_count}")
 
         stats_text = (
             f"📊 **Estadísticas del Bot**\n\n"
-            f"👥 Usuarios Totales Registrados: `{total_users}`\n\n"
+            f"👥 Usuarios Totales Registrados: `{total_users}`\n"
+            f"💎 Usuarios Premium Activos: `{premium_users_count}`\n"
+            f"🚫 Usuarios Baneados: `{banned_users_count}`\n\n"
         )
         await message.reply_text(stats_text, quote=True)
 
@@ -953,14 +941,14 @@ async def simple_stats_command(client, message: Message):
         await message.reply_text("❌ Ocurrió un error al intentar obtener las estadísticas.")
 
 
-# --- Manejador de Callbacks (Botones Inline) (Formateado) ---
+# --- Manejador de Callbacks (Botones Inline) ---
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     """Maneja las pulsaciones de botones inline."""
     user_id = query.from_user.id
     q_data = query.data
     message = query.message
-    log_prefix = f"CB (User: {user_id}, Data: '{q_data}'):" # Prefijo para logs
+    log_prefix = f"CB (User: {user_id}, Data: '{q_data}'):"
 
     logger.debug(f"{log_prefix} Callback recibido.")
 
@@ -969,9 +957,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
             me_mention = client.me.mention if client.me else (await client.get_me()).mention
         except Exception as e:
             logger.error(f"{log_prefix} Error al obtener get_me para mention: {e}")
-            me_mention = "este Bot" # Fallback
-
-        # --- Manejar diferentes datos de callback ---
+            me_mention = "este Bot"
 
         if q_data == "close_data":
             logger.debug(f"{log_prefix} Solicitud para cerrar mensaje {message.id}")
@@ -1004,14 +990,13 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 [InlineKeyboardButton('❓ Ayuda', callback_data='help'),
                  InlineKeyboardButton('ℹ️ Acerca de', callback_data='about')]
             ]
-            # --- Botón Clonar Eliminado ---
             markup = InlineKeyboardMarkup(buttons)
 
             start_text = getattr(script, 'START_TXT', "Bienvenido!")
-            if '{mention}' in start_text or '{me_mention}' in start_text: # Adaptar según formato exacto en Script.py
+            if '{mention}' in start_text or '{me_mention}' in start_text:
                  start_text = start_text.format(mention=query.from_user.mention, me_mention=me_mention)
-            elif '{message.from_user.mention}' in start_text or '{me.mention}' in start_text: # Formato alternativo
-                  start_text = start_text.format(mention=query.from_user.mention, me_mention=me_mention) # O usar las variables directas si están disponibles
+            elif '{message.from_user.mention}' in start_text or '{me.mention}' in start_text:
+                  start_text = start_text.format(mention=query.from_user.mention, me_mention=me_mention)
 
 
             try:
@@ -1044,8 +1029,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
                  except Exception as e_media:
                      logger.error(f"{log_prefix} Fallo CRÍTICO al editar media/caption para 'Start': {e_media}")
             await query.answer()
-
-        # --- Bloque 'clone' Eliminado ---
 
         elif q_data == "help":
              logger.debug(f"{log_prefix} Mostrando sección 'Help'")
@@ -1086,7 +1069,7 @@ async def add_premium_command(client, message: Message):
     usage_text = (
         "ℹ️ **Cómo usar /addpremium:**\n\n"
         "Este comando otorga acceso Premium a un usuario.\n\n"
-        "**Formatos:**\n"
+        "**Formato:**\n"
         "1. Para añadir premium **permanentemente**:\n"
         "   `/addpremium ID_DEL_USUARIO`\n\n"
         "2. Para añadir premium por un **número específico de días**:\n"
@@ -1193,4 +1176,94 @@ async def del_premium_command(client, message: Message):
         logger.error(f"{log_prefix} Error CRÍTICO durante remove_premium para {target_user_id}: {e}", exc_info=True)
         await message.reply_text("❌ Error interno del servidor al procesar la solicitud.")
 
-# --- Fin del archivo plugins/commands.py ---
+
+# NUEVOS COMANDOS DE BANEO (ADMINS ONLY)
+@Client.on_message(filters.command("ban") & filters.private & filters.user(ADMINS))
+async def ban_user_command(client, message: Message):
+    """Banea a un usuario (Admin Only)."""
+    log_prefix = f"CMD /ban (Admin: {message.from_user.id}):"
+    usage_text = "ℹ️ **Cómo usar /ban:**\n\nBanea a un usuario del bot.\n\n**Formato:**\n`/ban ID_DEL_USUARIO`\n\n**Ejemplo:**\n`/ban 123456789`"
+
+    if len(message.command) != 2:
+        logger.warning(f"{log_prefix} Uso incorrecto: {' '.join(message.command)}")
+        return await message.reply_text(usage_text)
+
+    try:
+        target_user_id = int(message.command[1])
+    except ValueError:
+        logger.warning(f"{log_prefix} ID de usuario inválido: {message.command[1]}")
+        return await message.reply_text(f"❌ ID de usuario inválido.\n\n{usage_text}")
+
+    if not await db.is_user_exist(target_user_id):
+        logger.warning(f"{log_prefix} Usuario {target_user_id} no encontrado en la base de datos.")
+        return await message.reply_text(f"❌ Usuario con ID `{target_user_id}` no encontrado en la base de datos.")
+
+    if await db.is_user_banned(target_user_id):
+        logger.info(f"{log_prefix} El usuario {target_user_id} ya estaba baneado.")
+        return await message.reply_text(f"ℹ️ El usuario `{target_user_id}` ya está baneado.")
+
+    try:
+        success = await db.ban_user(target_user_id)
+        if success:
+            confirmation_msg = f"✅ Usuario `{target_user_id}` ha sido baneado exitosamente."
+            await message.reply_text(confirmation_msg)
+            logger.info(f"{log_prefix} Usuario {target_user_id} baneado.")
+            try:
+                await client.send_message(
+                    target_user_id,
+                    f"🚫 Has sido baneado de {client.me.mention}. Si crees que es un error, contacta al soporte."
+                )
+            except Exception as notify_err:
+                logger.warning(f"{log_prefix} No se pudo notificar al usuario {target_user_id} sobre el baneo: {notify_err}")
+                await message.reply_text("ℹ️ *Nota: No se pudo notificar al usuario directamente (quizás bloqueó al bot).*")
+        else:
+            logger.error(f"{log_prefix} La función db.ban_user devolvió False para {target_user_id}.")
+            await message.reply_text(f"❌ Ocurrió un error inesperado al intentar banear a `{target_user_id}`.")
+    except Exception as e:
+        logger.error(f"{log_prefix} Error CRÍTICO durante ban_user para {target_user_id}: {e}", exc_info=True)
+        await message.reply_text("❌ Error interno del servidor al procesar la solicitud.")
+
+@Client.on_message(filters.command("unban") & filters.private & filters.user(ADMINS))
+async def unban_user_command(client, message: Message):
+    """Desbanea a un usuario (Admin Only)."""
+    log_prefix = f"CMD /unban (Admin: {message.from_user.id}):"
+    usage_text = "ℹ️ **Cómo usar /unban:**\n\nDesbanea a un usuario del bot.\n\n**Formato:**\n`/unban ID_DEL_USUARIO`\n\n**Ejemplo:**\n`/unban 123456789`"
+
+    if len(message.command) != 2:
+        logger.warning(f"{log_prefix} Uso incorrecto: {' '.join(message.command)}")
+        return await message.reply_text(usage_text)
+
+    try:
+        target_user_id = int(message.command[1])
+    except ValueError:
+        logger.warning(f"{log_prefix} ID de usuario inválido: {message.command[1]}")
+        return await message.reply_text(f"❌ ID de usuario inválido.\n\n{usage_text}")
+
+    if not await db.is_user_exist(target_user_id):
+        logger.warning(f"{log_prefix} Usuario {target_user_id} no encontrado en la base de datos.")
+        return await message.reply_text(f"❌ Usuario con ID `{target_user_id}` no encontrado en la base de datos.")
+
+    if not await db.is_user_banned(target_user_id):
+        logger.info(f"{log_prefix} El usuario {target_user_id} no estaba baneado.")
+        return await message.reply_text(f"ℹ️ El usuario `{target_user_id}` no está baneado actualmente.")
+
+    try:
+        success = await db.unban_user(target_user_id)
+        if success:
+            confirmation_msg = f"✅ Usuario `{target_user_id}` ha sido desbaneado exitosamente."
+            await message.reply_text(confirmation_msg)
+            logger.info(f"{log_prefix} Usuario {target_user_id} desbaneado.")
+            try:
+                await client.send_message(
+                    target_user_id,
+                    f"🎉 Has sido desbaneado de {client.me.mention}. ¡Bienvenido de nuevo!"
+                )
+            except Exception as notify_err:
+                logger.warning(f"{log_prefix} No se pudo notificar al usuario {target_user_id} sobre el desbaneo: {notify_err}")
+                await message.reply_text("ℹ️ *Nota: No se pudo notificar al usuario directamente.*")
+        else:
+            logger.error(f"{log_prefix} La función db.unban_user devolvió False para {target_user_id}.")
+            await message.reply_text(f"❌ Ocurrió un error inesperado al intentar desbanear a `{target_user_id}`.")
+    except Exception as e:
+        logger.error(f"{log_prefix} Error CRÍTICO durante unban_user para {target_user_id}: {e}", exc_info=True)
+        await message.reply_text("❌ Error interno del servidor al procesar la solicitud.")
